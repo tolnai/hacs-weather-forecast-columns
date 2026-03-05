@@ -1,15 +1,5 @@
 # Changelog
 
-## v1.0.0 (2025-xx-xx)
+## v1.0.0 (2026-03-xx)
 
-⚠️ BREAKING CHANGES:
-
-- ...
-
-🚀 New features:
-
-- ...
-
-🪲 Fixes:
-
-- ...
+- First release

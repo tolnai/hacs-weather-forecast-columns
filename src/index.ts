@@ -19,27 +19,16 @@ import { version } from '../package.json';
 const DEV = false;
 
 // Change these values to your card's name, description and URL
-const cardId = 'hacs-boilerplate-card';
-const cardName = 'HACS Boilerplate Card';
-const cardDescription = 'Custom Card Boilerplate for Home Assistant - Sample HACS Card';
-const cardUrl = 'https://github.com/tolnai/hacs_custom_card_boilerplate';
-
-export type MyEntityConfig = {
-  entity: string;
-  name?: string;
-  sampleFlag?: boolean;
-  tap_action?: ActionConfig;
-  hold_action?: ActionConfig;
-  double_tap_action?: ActionConfig;
-};
+const cardId = 'hacs-weather-forecast-columns';
+const cardName = 'HACS Weather Forecast Columns';
+const cardDescription = 'HACS Weather Forecast Columns Card for Home Assistant (like Időkép app)';
+const cardUrl = 'https://github.com/tolnai/hacs-weather-forecast-columns';
 
 type MyCardConfig = {
-  entities: MyEntityConfig[];
-  sampleText?: string;
-  sampleEnum?: 'one' | 'two' | 'three';
-  sampleFlag?: boolean;
-  sampleNumber?: number;
-  sampleIcon?: string;
+  entity: string;
+  name?: string;
+  numberOfDays?: number;
+  scrollable?: boolean;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
@@ -81,7 +70,7 @@ console.info(
 });
 
 @customElement(`${cardId}${DEV ? '-dev' : ''}`)
-export class HacsBoilerplateCard extends LitElement {
+export class HacsWeatherForecastColumnsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
   @state() private config!: MyCardConfig;
@@ -108,14 +97,9 @@ export class HacsBoilerplateCard extends LitElement {
     if (!config) {
       throw this.createError('Invalid configuration.');
     }
-    if (!config.entities) {
-      throw this.createError('You need to define entities.');
+    if (!config.entity) {
+      throw this.createError('You need to define a weather entity.');
     }
-    config.entities.forEach((entity, i) => {
-      if (entity.entity === undefined) {
-        throw this.createError(`Entity ${i + 1} is invalid! Must be an object, having an entity key.`);
-      }
-    });
     this.config = config;
   }
 
@@ -125,14 +109,14 @@ export class HacsBoilerplateCard extends LitElement {
   }
 
   // Action handling logic (handles fallback from entity action to global card default action)
-  private handleAction(event: ActionHandlerEvent, entityConfig: MyEntityConfig): void {
+  private handleAction(event: ActionHandlerEvent): void {
     if (this.hass && this.config && event.detail.action) {
       event.preventDefault();
       event.stopPropagation();
       handleAction(
         this,
         this.hass,
-        entityConfig.tap_action ? entityConfig : this.config.tap_action ? this.config : { ...entityConfig, tap_action: { action: 'more-info' } as ActionConfig },
+        this.config.tap_action ? this.config : { ...this.config, tap_action: { action: 'more-info' } as ActionConfig },
         event.detail.action,
       );
     }
@@ -150,22 +134,7 @@ export class HacsBoilerplateCard extends LitElement {
     return error;
   }
 
-  _callService(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    // entity details can be checked in stateObj, or this.hass.states[stateObj.entity_id].(attributes|state)
-    //sample event or service call
-    if (entityConfig.sampleFlag) {
-      this._fireSampleHassEvent(stateObj.entity_id);
-    } else {
-      this.hass.callService('light', 'toggle', {
-        entity_id: stateObj.entity_id,
-      });
-    }
-    this.counter += 1;
-    // this could be used if we need to force a re-render
-    this.requestUpdate();
-}
-
-  _fireSampleHassEvent(entityId: string) {
+  _fireMoreInfoEvent(entityId: string) {
     this._fireHassEvent('hass-more-info', { entityId });
   }
 
@@ -184,7 +153,7 @@ export class HacsBoilerplateCard extends LitElement {
     return styles;
   }
 
-  _renderButton(entityConfig: MyEntityConfig, stateObj: HassEntity) {
+  /*_renderButton(entityConfig: MyEntityConfig, stateObj: HassEntity) {
     return html`
       <span
         @click=${() => this._callService(entityConfig, stateObj)}
@@ -192,37 +161,37 @@ export class HacsBoilerplateCard extends LitElement {
         Click me
       </p>
     `;
-  }
+  }*/
   
-  _renderName(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    const nameSize = `${this.config.sampleNumber ?? 14}px`;
+  _renderName(stateObj: HassEntity) {
+    //const nameSize = `${this.config.sampleNumber ?? 14}px`;
     // variables can be passed to the CSS style code like below
+    // style="--fontSize:${nameSize};"
     return html`
       <p
         class="name"
-        style="--fontSize:${nameSize};"
+        
         @action=${(e: ActionHandlerEvent) => {
-          this.handleAction(e, entityConfig);
+          this.handleAction(e);
         }}
         .actionHandler=${actionHandler({
-          hasHold: hasAction(entityConfig.hold_action || this.config.hold_action),
-          hasDoubleClick: hasAction(entityConfig.double_tap_action || this.config.double_tap_action),
+          hasHold: hasAction(this.config.hold_action || this.config.hold_action),
+          hasDoubleClick: hasAction(this.config.double_tap_action || this.config.double_tap_action),
         })}
       >
-        ${entityConfig.name || stateObj.attributes.friendly_name}
+        ${this.config.name || stateObj.attributes.friendly_name}
       </p>
     `;
   }
   
-  _renderEntity(entityConfig: MyEntityConfig) {
-    const stateObj = this.hass.states[entityConfig.entity];
+  _renderWeatherForecast() {
+    const stateObj = this.hass.states[this.config.entity];
     if (!stateObj) {
       return html``;
     }
     return html`
       <div>
-        ${this._renderName(entityConfig, stateObj)}
-        ${this._renderButton(entityConfig, stateObj)}
+        ${this._renderName(stateObj)}
       </div>
     `;
   }
@@ -236,8 +205,7 @@ export class HacsBoilerplateCard extends LitElement {
     return html`
       <ha-card>
         <div class="main">
-          ${this.config.entities.length === 0 ? html` You need to define entities ` : ''}
-          ${this.config.entities.map((entityConfig) => this._renderEntity(entityConfig))}
+          ${!this.config.entity ? html` You need to define an entity ` : this._renderWeatherForecast()}
         </div>
         Counter: ${this.counter}
       </ha-card>
@@ -250,12 +218,11 @@ export class HacsBoilerplateCard extends LitElement {
 const actions: string[] = ['navigate', 'url', 'perform-action', 'none'];
 
 @customElement(`${cardId}-editor${DEV ? '-dev' : ''}`)
-export class HacsBoilerplateCardEditor extends LitElement {
+export class HacsWeatherForecastColumnsCardEditor extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
   @state() private _config!: MyCardConfig;
-  @state() private _selectedTab = 'entities';
-  @state() private _editingEntity: { index: number; elementConfig: MyEntityConfig } | null = null;
+  @state() private _selectedTab = 'configuration';
 
   constructor() {
     super();
@@ -275,32 +242,12 @@ export class HacsBoilerplateCardEditor extends LitElement {
     return editStyles;
   }
 
-  _backClick(_e: Event) {
-    this._editingEntity = null;
-  }
-
   _computeLabel(e) {
     return e.label || e.name;
   }
 
   _valuesChanged(ev: CustomEvent) {
     this._config = ev.detail.value;
-    this._publishConfig();
-  }
-
-  _entitiesChanged(ev: CustomEvent) {
-    const _config = Object.assign({}, this._config);
-    _config.entities = ev.detail.entities;
-    this._config = _config;
-    this._publishConfig();
-  }
-
-  _entityChanged(ev: CustomEvent) {
-    if (!this._editingEntity) {
-      return;
-    }
-    this._config.entities[this._editingEntity.index] = ev.detail.value;
-    this._editingEntity.elementConfig = ev.detail.value;
     this._publishConfig();
   }
 
@@ -315,60 +262,6 @@ export class HacsBoilerplateCardEditor extends LitElement {
 
   _handleSwitchTab(ev: CustomEvent) {
     this._selectedTab = ev.detail.name;
-  }
-
-  _editDetails(ev: CustomEvent) {
-    this._editingEntity = ev.detail.subElementConfig;
-  }
-
-  // This should include everything from the MyEntityConfig type
-  // Selectors can be found here: https://www.home-assistant.io/docs/blueprint/selectors/
-  _renderEntityEditor() {
-    return html`
-      <div><ha-icon-button-prev @click=${(e) => this._backClick(e)} /> Back</div>
-      <div class="box">
-        <h3>Entity</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._editingEntity?.elementConfig}
-          .schema=${[
-            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'cover' } }, required: true },
-            { name: 'name', label: 'Name', selector: { text: {} } },
-            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._entityChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Actions (override defaults)</h3>
-        <p class="intro">Individual actions of this entity (override any default actions).</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._editingEntity?.elementConfig}
-          .schema=${[
-            { name: 'tap_action', label: 'Tap action', selector: { ui_action: { actions } } },
-            { name: 'hold_action', label: 'Hold action', selector: { ui_action: { actions } } },
-            { name: 'double_tap_action', label: 'Double tap action', selector: { ui_action: { actions } } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._entityChanged}
-        ></ha-form>
-      </div>
-    `;
-  }
-
-  _renderEntitiesEditor() {
-    return html`
-      <div class="box">
-        <hui-entities-card-row-editor
-          .hass=${this.hass}
-          .entities=${this._config.entities}
-          @entities-changed=${this._entitiesChanged}
-          @edit-detail-element=${this._editDetails}
-        ></hui-entities-card-row-editor>
-      </div>
-    `;
   }
 
   // This should include everything from the main MyCardConfig type
@@ -424,15 +317,29 @@ export class HacsBoilerplateCardEditor extends LitElement {
         ></ha-form>
       </div>
       <div class="box">
-        <h3>Default actions</h3>
-        <p class="intro">These settings can be set globally here, or individually in the entity editor.</p>
+        <h3>Entity</h3>
         <ha-form
           .hass=${this.hass}
           .data=${this._config}
           .schema=${[
-            { name: 'tap_action', label: 'Default tap action', selector: { ui_action: { actions } } },
-            { name: 'hold_action', label: 'Default hold action', selector: { ui_action: { actions } } },
-            { name: 'double_tap_action', label: 'Default double tap action', selector: { ui_action: { actions } } },
+            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'cover' } }, required: true },
+            { name: 'name', label: 'Name', selector: { text: {} } },
+            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
+          ]}
+          .computeLabel=${this._computeLabel}
+          @value-changed=${this._valuesChanged}
+        ></ha-form>
+      </div>
+      <div class="box">
+        <h3>Actions (override defaults)</h3>
+        <p class="intro">Individual actions of this entity (override any default actions).</p>
+        <ha-form
+          .hass=${this.hass}
+          .data=${this._config}
+          .schema=${[
+            { name: 'tap_action', label: 'Tap action', selector: { ui_action: { actions } } },
+            { name: 'hold_action', label: 'Hold action', selector: { ui_action: { actions } } },
+            { name: 'double_tap_action', label: 'Double tap action', selector: { ui_action: { actions } } },
           ]}
           .computeLabel=${this._computeLabel}
           @value-changed=${this._valuesChanged}
@@ -442,13 +349,6 @@ export class HacsBoilerplateCardEditor extends LitElement {
   }
 
   _renderContent() {
-    if (this._selectedTab === 'entities' && this._editingEntity !== null) {
-      return this._renderEntityEditor();
-    }
-
-    if (this._selectedTab === 'entities') {
-      return this._renderEntitiesEditor();
-    }
     if (this._selectedTab === 'configuration') {
       return this._renderConfigurationEditor();
     }
@@ -464,7 +364,6 @@ export class HacsBoilerplateCardEditor extends LitElement {
       <div class="card-config">
         <div class="toolbar">
           <sl-tab-group @sl-tab-show=${this._handleSwitchTab}>
-            <sl-tab slot="nav" panel="entities" .active=${this._selectedTab === 'entities'}>My Entities</sl-tab>
             <sl-tab slot="nav" panel="configuration" .active=${this._selectedTab === 'configuration'}>Configuration</sl-tab>
           </sl-tab-group>
         </div>

@@ -1,5 +1,5 @@
 {
-  "name": "HACS Boilerplate Card",
+  "name": "HACS Weather Forecast Columns Card (like Időkép app)",
   "render_readme": true,
-  "filename": "hacs-boilerplate-card.js"
+  "filename": "hacs-weather-forecast-columns.js"
 }
