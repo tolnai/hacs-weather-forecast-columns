@@ -1,4 +1,4 @@
-import { LitElement, html, type TemplateResult, type CSSResultGroup } from 'lit';
+import { LitElement, html, type TemplateResult, type CSSResultGroup, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   type HomeAssistant,
@@ -8,6 +8,31 @@ import {
   type ActionConfig,
 } from 'custom-card-helpers'; // This is a community maintained npm module with common helper functions/types. https://github.com/custom-cards/custom-card-helpers
 import { type HassEntity } from 'home-assistant-js-websocket';
+
+import clearNight from './assets/clear-night.svg';
+import cloudy from './assets/cloudy.svg';
+import cloudy2 from './assets/cloudy2.svg';
+import exceptional from './assets/exceptional.svg';
+import fog from './assets/fog.svg';
+import fog2 from './assets/fog2.svg';
+import hail from './assets/hail.svg';
+import hail2 from './assets/hail2.svg';
+import lightningRainy from './assets/lightning-rainy.svg';
+import lightningRainy2 from './assets/lightning-rainy2.svg';
+import lightning from './assets/lightning.svg';
+import lightning2 from './assets/lightning2.svg';
+import partlycloudy from './assets/partlycloudy.svg';
+import partlycloudy2 from './assets/partlycloudy2.svg';
+import pouring from './assets/pouring.svg';
+import pouring2 from './assets/pouring2.svg';
+import rainy from './assets/rainy.svg';
+import rainy2 from './assets/rainy2.svg';
+import snowyRainy from './assets/snowy-rainy.svg';
+import snowyRainy2 from './assets/snowy-rainy2.svg';
+import snowy from './assets/snowy.svg';
+import snowy2 from './assets/snowy2.svg';
+import sunny from './assets/sunny.svg';
+import windy from './assets/windy.svg';
 
 import styles from './styles';
 import editStyles from './styles-edit';
@@ -20,8 +45,8 @@ const DEV = false;
 
 // Change these values to your card's name, description and URL
 const cardId = 'hacs-weather-forecast-columns';
-const cardName = 'HACS Weather Forecast Columns';
-const cardDescription = 'HACS Weather Forecast Columns Card for Home Assistant (like Időkép app)';
+const cardName = 'Weather Forecast Columns';
+const cardDescription = 'Weather Forecast Columns Card for Home Assistant (like Időkép app)';
 const cardUrl = 'https://github.com/tolnai/hacs-weather-forecast-columns';
 
 type MyCardConfig = {
@@ -29,6 +54,7 @@ type MyCardConfig = {
   name?: string;
   numberOfDays?: number;
   scrollable?: boolean;
+  height?: number;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
@@ -74,9 +100,8 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
   @state() private config!: MyCardConfig;
+  @state() private _forecast: any[] = [];
   @state() private error?: TemplateResult;
-
-  private counter = 0;
 
   constructor() {
     super();
@@ -106,6 +131,46 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
   // Initial (non-grid) size
   public getCardSize() {
     return 3;
+  }
+
+  protected updated(changedProps: PropertyValues): void {
+    super.updated(changedProps);
+
+    const oldConfig = changedProps.get('config') as MyCardConfig | undefined;
+    if (changedProps.has('config') && this.config?.entity !== oldConfig?.entity) {
+      this._fetchForecast();
+    } else if (changedProps.has('hass') && this.hass && this._forecast.length === 0) {
+      this._fetchForecast();
+    }
+  }
+
+  private async _fetchForecast() {
+    if (!this.hass || !this.config || !this.config.entity) return;
+
+    try {
+      const forecastServiceResponse = await this.hass.connection.sendMessagePromise<any>({
+        type: "execute_script",
+        sequence: [{
+          "service": "weather.get_forecasts",
+          "data": {
+            entity_id: this.config.entity,
+            type: 'daily',
+          },
+          "target": { "entity_id": this.config.entity },
+          "response_variable": "return_response",
+        },
+        {
+          "stop": "done",
+          "response_variable": "return_response",
+        }]
+      });
+      const forecast = forecastServiceResponse?.response?.[this.config.entity]?.forecast || [];
+      if (forecast.length > 0) {
+        this._forecast = forecast;
+      }
+    } catch (e) {
+      // Ignore error for production
+    }
   }
 
   // Action handling logic (handles fallback from entity action to global card default action)
@@ -189,11 +254,97 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
     if (!stateObj) {
       return html``;
     }
+
+    // Fallback to forecast attribute if service call hasn't populated data yet or failed
+    const forecastData = this._forecast.length > 0 
+      ? this._forecast 
+      : (stateObj.attributes.forecast || []);
+
+    const allTemps = forecastData.reduce((acc: number[], day: any) => acc.concat([day.temperature, day.templow]), []);
+    const maxTemp = Math.max(...allTemps);
+    const minTemp = Math.min(...allTemps);
+    const range = maxTemp - minTemp || 1;
+    const temperatureAreaHeight = 100;
+    const tempSize = 30;
+    const boxSize = tempSize * Math.sqrt(2);
+    const fullHeight = temperatureAreaHeight + 2 * boxSize;
+
     return html`
       <div>
         ${this._renderName(stateObj)}
+        <div class="forecast-columns" style="display: flex; overflow-x: auto;">
+          ${forecastData.map((day: any) => {
+            const maxPos = ((maxTemp - day.temperature) / range) * temperatureAreaHeight;
+            const minPos = ((maxTemp - day.templow) / range) * temperatureAreaHeight + boxSize;
+            return html`
+            <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; max-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3);">
+              <div class="date_day">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' })}</div>
+              <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
+              <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px 2.5px; border-radius: ${(tempSize + 5) / 2}px; background: rgba(255, 255, 255, 0.9);">
+                <img src="${this._getWeatherIcon(day.condition)}" alt="${day.condition}" width="${tempSize + 5}" height="${tempSize + 5}" />
+              </div>
+              <div class="temperature" style="height: ${fullHeight}px; position: relative; text-align: center; text-align: center;">
+                <div class="max" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${maxPos}px; left: 5px;">
+                  <div style="
+                    position: absolute; top:0; left:0; right:0; bottom:0;
+                    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+                    background: var(--accent-color); opacity: 0.6; z-index: 0;
+                  "></div>
+                  <span style="position: relative; z-index: 1;">${day.temperature}</span>
+                </div>
+                <div class="min" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${minPos}px; left: 5px;">
+                  <div style="
+                    position: absolute; top:0; left:0; right:0; bottom:0;
+                    border-radius: 0 50% 50% 50%; transform: rotate(45deg);
+                    background: var(--primary-color); opacity: 0.6; z-index: 0;
+                  "></div>
+                  <span style="position: relative; z-index: 1;">${day.templow}</span>
+                </div>
+              </div>
+            </div>
+          `})}
+        </div>
       </div>
     `;
+  }
+
+  _getWeatherIcon(condition: string) {
+    const weatherIcons = {
+      'clear-night': clearNight,
+      cloudy: cloudy,
+      exceptional: exceptional,
+      fog: fog,
+      hail: hail,
+      lightning: lightning,
+      'lightning-rainy': lightningRainy,
+      partlycloudy: partlycloudy,
+      pouring: pouring,
+      rainy: rainy,
+      snowy: snowy,
+      'snowy-rainy': snowyRainy,
+      sunny: sunny,
+      windy: windy,
+      'windy-variant': windy,
+    };
+    const weatherIcons2 = {
+      'clear-night': clearNight,
+      cloudy: cloudy2,
+      exceptional: exceptional,
+      fog: fog2,
+      hail: hail2,
+      lightning: lightning2,
+      'lightning-rainy': lightningRainy2,
+      partlycloudy: partlycloudy2,
+      pouring: pouring2,
+      rainy: rainy2,
+      snowy: snowy2,
+      'snowy-rainy': snowyRainy2,
+      sunny: sunny,
+      windy: windy,
+      'windy-variant': windy,
+    };
+
+    return weatherIcons[condition] || '';
   }
 
   // https://lit.dev/docs/components/rendering/
@@ -207,7 +358,6 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
         <div class="main">
           ${!this.config.entity ? html` You need to define an entity ` : this._renderWeatherForecast()}
         </div>
-        Counter: ${this.counter}
       </ha-card>
     `;
   }
@@ -322,7 +472,7 @@ export class HacsWeatherForecastColumnsCardEditor extends LitElement {
           .hass=${this.hass}
           .data=${this._config}
           .schema=${[
-            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'cover' } }, required: true },
+            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'weather' } }, required: true },
             { name: 'name', label: 'Name', selector: { text: {} } },
             { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
           ]}
