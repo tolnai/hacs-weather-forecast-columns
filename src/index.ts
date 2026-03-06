@@ -52,9 +52,11 @@ const cardUrl = 'https://github.com/tolnai/hacs-weather-forecast-columns';
 type MyCardConfig = {
   entity: string;
   name?: string;
+  hideName?: boolean;
   numberOfDays?: number;
-  scrollable?: boolean;
+  iconPack?: number;
   height?: number;
+  hideMargin?: boolean;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
@@ -114,7 +116,7 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
 
   // This is the default config when creating a new card
   static getStubConfig() {
-    return { entities: [] };
+    return {};
   }
 
   // This is called when the config is changed/loaded
@@ -229,6 +231,9 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
   }*/
   
   _renderName(stateObj: HassEntity) {
+    if (this.config.hideName) {
+      return '';
+    }
     //const nameSize = `${this.config.sampleNumber ?? 14}px`;
     // variables can be passed to the CSS style code like below
     // style="--fontSize:${nameSize};"
@@ -264,52 +269,52 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
     const maxTemp = Math.max(...allTemps);
     const minTemp = Math.min(...allTemps);
     const range = maxTemp - minTemp || 1;
-    const temperatureAreaHeight = 100;
+    const temperatureAreaHeight = this.config.height || 100;
     const tempSize = 30;
     const boxSize = tempSize * Math.sqrt(2);
     const fullHeight = temperatureAreaHeight + 2 * boxSize;
 
+    const forecastDays = this.config.numberOfDays ? forecastData.slice(0, this.config.numberOfDays) : forecastData;
+
     return html`
-      <div>
-        ${this._renderName(stateObj)}
-        <div class="forecast-columns" style="display: flex; overflow-x: auto;">
-          ${forecastData.map((day: any) => {
-            const maxPos = ((maxTemp - day.temperature) / range) * temperatureAreaHeight;
-            const minPos = ((maxTemp - day.templow) / range) * temperatureAreaHeight + boxSize;
-            return html`
-            <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; max-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3);">
-              <div class="date_day">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' })}</div>
-              <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
-              <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px 2.5px; border-radius: ${(tempSize + 5) / 2}px; background: rgba(255, 255, 255, 0.9);">
-                <img src="${this._getWeatherIcon(day.condition)}" alt="${day.condition}" width="${tempSize + 5}" height="${tempSize + 5}" />
+      ${this._renderName(stateObj)}
+      <div class="forecast-columns" style="display: flex; overflow-x: auto; flex-grow: 1;">
+        ${forecastDays.map((day: any) => {
+          const maxPos = ((maxTemp - day.temperature) / range) * temperatureAreaHeight;
+          const minPos = ((maxTemp - day.templow) / range) * temperatureAreaHeight + boxSize;
+          return html`
+          <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3); flex-grow: 1; width: auto;">
+            <div class="date_day">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' })}</div>
+            <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
+            <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px auto; border-radius: ${(tempSize + 5) / 2}px; background: var(--shadow-color);">
+              <img src="${this._getWeatherIcon(day.condition)}" alt="${day.condition}" width="${tempSize + 5}" height="${tempSize + 5}" />
+            </div>
+            <div class="temperature" style="height: ${fullHeight}px; position: relative; text-align: center; text-align: center; width: ${tempSize + 10}px; margin: 0 auto;">
+              <div class="max" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${maxPos}px; left: 5px;">
+                <div style="
+                  position: absolute; top:0; left:0; right:0; bottom:0;
+                  border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+                  background: var(--accent-color); opacity: 0.6; z-index: 0;
+                "></div>
+                <span style="position: relative; z-index: 1;">${day.temperature}</span>
               </div>
-              <div class="temperature" style="height: ${fullHeight}px; position: relative; text-align: center; text-align: center;">
-                <div class="max" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${maxPos}px; left: 5px;">
-                  <div style="
-                    position: absolute; top:0; left:0; right:0; bottom:0;
-                    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-                    background: var(--accent-color); opacity: 0.6; z-index: 0;
-                  "></div>
-                  <span style="position: relative; z-index: 1;">${day.temperature}</span>
-                </div>
-                <div class="min" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${minPos}px; left: 5px;">
-                  <div style="
-                    position: absolute; top:0; left:0; right:0; bottom:0;
-                    border-radius: 0 50% 50% 50%; transform: rotate(45deg);
-                    background: var(--primary-color); opacity: 0.6; z-index: 0;
-                  "></div>
-                  <span style="position: relative; z-index: 1;">${day.templow}</span>
-                </div>
+              <div class="min" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${minPos}px; left: 5px;">
+                <div style="
+                  position: absolute; top:0; left:0; right:0; bottom:0;
+                  border-radius: 0 50% 50% 50%; transform: rotate(45deg);
+                  background: var(--primary-color); opacity: 0.6; z-index: 0;
+                "></div>
+                <span style="position: relative; z-index: 1;">${day.templow}</span>
               </div>
             </div>
-          `})}
-        </div>
+          </div>
+        `})}
       </div>
     `;
   }
 
   _getWeatherIcon(condition: string) {
-    const weatherIcons = {
+    const weatherIcons = [{
       'clear-night': clearNight,
       cloudy: cloudy,
       exceptional: exceptional,
@@ -325,8 +330,8 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
       sunny: sunny,
       windy: windy,
       'windy-variant': windy,
-    };
-    const weatherIcons2 = {
+    },
+    {
       'clear-night': clearNight,
       cloudy: cloudy2,
       exceptional: exceptional,
@@ -342,9 +347,10 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
       sunny: sunny,
       windy: windy,
       'windy-variant': windy,
-    };
+    }];
+    const icons = weatherIcons[(this.config.iconPack || 1) - 1];
 
-    return weatherIcons[condition] || '';
+    return icons[condition] || '';
   }
 
   // https://lit.dev/docs/components/rendering/
@@ -355,7 +361,16 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
 
     return html`
       <ha-card>
-        <div class="main">
+        <div
+          class="main ${this.config.hideMargin ? '' : 'main-padding'}"
+          @action=${(e: ActionHandlerEvent) => {
+            this.handleAction(e);
+          }}
+          .actionHandler=${actionHandler({
+            hasHold: hasAction(this.config.hold_action || this.config.hold_action),
+            hasDoubleClick: hasAction(this.config.double_tap_action || this.config.double_tap_action),
+          })}
+        >
           ${!this.config.entity ? html` You need to define an entity ` : this._renderWeatherForecast()}
         </div>
       </ha-card>
@@ -419,54 +434,6 @@ export class HacsWeatherForecastColumnsCardEditor extends LitElement {
   _renderConfigurationEditor() {
     return html`
       <div class="box">
-        <h3>Layout</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            {
-              name: 'sampleText', label: 'Gimme some text', selector: { text: {} },
-            },
-            {
-              name: 'sampleEnum',
-              label: 'Choose one',
-              selector: {
-                select: {
-                  options: [
-                    { label: 'One', value: 'one' },
-                    { label: 'Two', value: 'two' },
-                    { label: 'Three', value: 'three' },
-                  ],
-                  mode: 'dropdown',
-                },
-              },
-              required: true,
-            },
-            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Default visual settings</h3>
-        <p class="intro">These settings can be set globally here, or individually in the entity editor.</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            {
-              name: 'sampleNumber', label: 'A number, maybe a font size?', selector: { number: {} },
-            },
-            {
-              name: 'sampleIcon', label: 'Pick an icon', selector: { icon: {} },
-            },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
         <h3>Entity</h3>
         <ha-form
           .hass=${this.hass}
@@ -474,7 +441,39 @@ export class HacsWeatherForecastColumnsCardEditor extends LitElement {
           .schema=${[
             { name: 'entity', label: 'Entity', selector: { entity: { domain: 'weather' } }, required: true },
             { name: 'name', label: 'Name', selector: { text: {} } },
-            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
+            { name: 'hideName', label: 'Hide name?', selector: { boolean: {} } },
+          ]}
+          .computeLabel=${this._computeLabel}
+          @value-changed=${this._valuesChanged}
+        ></ha-form>
+      </div>
+      <div class="box">
+        <h3>Layout</h3>
+        <ha-form
+          .hass=${this.hass}
+          .data=${this._config}
+          .schema=${[
+            {
+              name: 'numberOfDays', label: 'Number of days (default: all)', selector: { number: {} },
+            },
+            {
+              name: 'iconPack',
+              label: 'Icon pack',
+              selector: {
+                select: {
+                  options: [
+                    { label: 'Brighter', value: 1 },
+                    { label: 'Darker', value: 2 },
+                  ],
+                  mode: 'dropdown',
+                },
+              },
+              required: true,
+            },
+            {
+              name: 'height', label: 'Height (px, default: 100)', selector: { number: {} },
+            },
+            { name: 'hideMargin', label: 'Hide margin?', selector: { boolean: {} } },
           ]}
           .computeLabel=${this._computeLabel}
           @value-changed=${this._valuesChanged}

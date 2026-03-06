@@ -12,14 +12,16 @@ export default css`
   }
   .main {
     display: flex;
+    flex-direction: column;
     height: 100%;
     margin: auto;
-    padding: 6px 16px 6px 16px;
     width: 100%;
-    justify-content: space-around;
     overflow-x: scroll;
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
+  }
+  .main-padding {
+    padding: 6px 16px 6px 16px;
   }
   .name {
     font-weight: 300;
