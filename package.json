@@ -52,5 +52,5 @@
     "lint": "eslint **/*.ts --max-warnings 0",
     "rollup": "rollup -c"
   },
-  "packageManager": "yarn@4.9.1"
+  "packageManager": "yarn@4.13.0"
 }
