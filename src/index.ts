@@ -53,7 +53,8 @@ type MyCardConfig = {
   entity: string;
   name?: string;
   hideName?: boolean;
-  numberOfDays?: number;
+  forecastMode?: 'daily' | 'hourly';
+  numberOfDaysHours?: number;
   iconPack?: number;
   height?: number;
   hideMargin?: boolean;
@@ -156,7 +157,7 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
           "service": "weather.get_forecasts",
           "data": {
             entity_id: this.config.entity,
-            type: 'daily',
+            type: this.config.forecastMode,
           },
           "target": { "entity_id": this.config.entity },
           "response_variable": "return_response",
@@ -265,16 +266,28 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
       ? this._forecast 
       : (stateObj.attributes.forecast || []);
 
-    const allTemps = forecastData.reduce((acc: number[], day: any) => acc.concat([day.temperature, day.templow]), []);
+    const hourly = this.config.forecastMode === 'hourly';
+    const daily = !hourly;
+
+    const allTemps = forecastData.reduce((acc: number[], day: any) => acc.concat(daily ? [day.temperature, day.templow] : [day.temperature]), []);
     const maxTemp = Math.max(...allTemps);
     const minTemp = Math.min(...allTemps);
     const range = maxTemp - minTemp || 1;
     const temperatureAreaHeight = this.config.height || 100;
     const tempSize = 30;
     const boxSize = tempSize * Math.sqrt(2);
-    const fullHeight = temperatureAreaHeight + 2 * boxSize;
+    const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + tempSize;
 
-    const forecastDays = this.config.numberOfDays ? forecastData.slice(0, this.config.numberOfDays) : forecastData;
+    const forecastDays = this.config.numberOfDaysHours ? forecastData.slice(0, this.config.numberOfDaysHours) : forecastData;
+    const tempColor = (temp: number) => {
+      if (temp <= -20) return '128, 128, 128'; // grey
+      if (temp <= 5) return '0, 0, 255'; // blue
+      if (temp <= 15) return '0, 128, 0'; // dark green
+      if (temp <= 26) return '255, 255, 0'; // yellow
+      if (temp <= 30) return '255, 165, 0'; // orange
+      if (temp <= 35) return '255, 0, 0'; // red
+      return '139, 0, 0'; // dark red
+    };
 
     return html`
       ${this._renderName(stateObj)}
@@ -282,22 +295,33 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
         ${forecastDays.map((day: any) => {
           const maxPos = ((maxTemp - day.temperature) / range) * temperatureAreaHeight;
           const minPos = ((maxTemp - day.templow) / range) * temperatureAreaHeight + boxSize;
+          const weekend = [6, 0].includes(new Date(day.datetime).getDay());
+          const dateText = daily ? new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' }) : new Date(day.datetime).getHours();
           return html`
           <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3); flex-grow: 1; width: auto;">
-            <div class="date_day">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' })}</div>
-            <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
+            <div class="date_day" style="${daily && weekend ? 'color: var(--red-color);' : ''}">${dateText}</div>
+            <div class="date_dow" style="${daily && weekend ? 'color: var(--red-color);' : ''} border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
             <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px auto; border-radius: ${(tempSize + 5) / 2}px; background: var(--shadow-color);">
               <img src="${this._getWeatherIcon(day.condition)}" alt="${day.condition}" width="${tempSize + 5}" height="${tempSize + 5}" />
             </div>
             <div class="temperature" style="height: ${fullHeight}px; position: relative; text-align: center; text-align: center; width: ${tempSize + 10}px; margin: 0 auto;">
               <div class="max" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${maxPos}px; left: 5px;">
+                ${daily ? html`
                 <div style="
                   position: absolute; top:0; left:0; right:0; bottom:0;
                   border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
                   background: var(--accent-color); opacity: 0.6; z-index: 0;
                 "></div>
+                ` : html`
+                <div style="
+                  position: absolute; top:0; left:0; right:0; bottom:0;
+                  border-radius: 50%;
+                  background: rgba(${tempColor(day.temperature)}, 0.5); z-index: 0;
+                "></div>
+                `}
                 <span style="position: relative; z-index: 1;">${day.temperature}</span>
               </div>
+              ${daily ? html`
               <div class="min" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${minPos}px; left: 5px;">
                 <div style="
                   position: absolute; top:0; left:0; right:0; bottom:0;
@@ -306,6 +330,7 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
                 "></div>
                 <span style="position: relative; z-index: 1;">${day.templow}</span>
               </div>
+              ` : ''}
             </div>
           </div>
         `})}
@@ -454,7 +479,20 @@ export class HacsWeatherForecastColumnsCardEditor extends LitElement {
           .data=${this._config}
           .schema=${[
             {
-              name: 'numberOfDays', label: 'Number of days (default: all)', selector: { number: {} },
+              name: 'forecastMode',
+              label: 'Forecast type (default: daily)',
+              selector: {
+                select: {
+                  options: [
+                    { label: 'Hourly', value: 'hourly' },
+                    { label: 'Daily', value: 'daily' },
+                  ],
+                  mode: 'dropdown',
+                },
+              },
+            },
+            {
+              name: 'numberOfDaysHours', label: 'Number of days/hours (default: all)', selector: { number: {} },
             },
             {
               name: 'iconPack',
@@ -468,7 +506,6 @@ export class HacsWeatherForecastColumnsCardEditor extends LitElement {
                   mode: 'dropdown',
                 },
               },
-              required: true,
             },
             {
               name: 'height', label: 'Height (px, default: 100)', selector: { number: {} },
