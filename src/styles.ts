@@ -24,6 +24,8 @@ export default css`
     padding: 6px 16px;
   }
   .name {
+    margin: 4px 0;
+    line-height: 20px;
     font-weight: 300;
   }
   .forecast-columns {
@@ -58,6 +60,10 @@ export default css`
   .weekend .date_day,
   .weekend .date_dow {
     color: var(--red-color);
+  }
+  .date_day,
+  .date_dow {
+    line-height: 20px;
   }
   .date_dow {
     border-bottom: 2px solid rgba(128, 128, 128, 0.3);

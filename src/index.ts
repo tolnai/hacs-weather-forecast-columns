@@ -10,7 +10,16 @@ import type { HassEntity } from 'home-assistant-js-websocket';
 import styles from './styles';
 import { actionHandler } from './ha-action-handler-directive';
 import type { ActionHandlerEvent, ForecastEvent, ForecastItem, HomeAssistant, WeatherCardConfig } from './types';
-import { columnLayout, forecastModeOf, hasAction, tempColor, TEMP_SIZE } from './utils';
+import {
+  columnLayout,
+  estimateHeight,
+  forecastModeOf,
+  hasAction,
+  isNumber,
+  tempColor,
+  temperatureRange,
+  TEMP_SIZE,
+} from './utils';
 import { weatherIcon } from './icons';
 import { DEV, CARD_TAG, EDITOR_TAG } from './const';
 import './editor';
@@ -51,11 +60,14 @@ export class WeatherForecastColumnsCard extends LitElement {
     return document.createElement(EDITOR_TAG);
   }
 
-  static getStubConfig() {
-    return {};
+  // Default config when the card is added from the card picker: the first weather entity.
+  static getStubConfig(hass?: HomeAssistant) {
+    const entity = Object.keys(hass?.states ?? {}).find((entityId) => entityId.startsWith('weather.'));
+    return { entity: entity ?? '' };
   }
 
   public setConfig(config?: WeatherCardConfig) {
+    this.error = undefined;
     if (!config) {
       throw this.createError('Invalid configuration.');
     }
@@ -66,7 +78,28 @@ export class WeatherForecastColumnsCard extends LitElement {
   }
 
   public getCardSize() {
-    return 3;
+    return Math.ceil(estimateHeight(this.config) / 50);
+  }
+
+  // Sections view: 12 columns, one row is 56px + 8px gap.
+  public getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: Math.ceil((estimateHeight(this.config) + 8) / 64) };
+  }
+
+  // Every state change in Home Assistant sets a new hass object: only render when this card's entity
+  // or the language changed.
+  protected shouldUpdate(changedProps: PropertyValues): boolean {
+    if (changedProps.size > 1 || !changedProps.has('hass')) {
+      return true;
+    }
+    const oldHass = changedProps.get('hass') as HomeAssistant | undefined;
+    if (!oldHass) {
+      return true;
+    }
+    return (
+      oldHass.states[this.config.entity] !== this.hass.states[this.config.entity] ||
+      oldHass.locale.language !== this.hass.locale.language
+    );
   }
 
   public connectedCallback() {
@@ -208,10 +241,7 @@ export class WeatherForecastColumnsCard extends LitElement {
       ? this._forecast.slice(0, this.config.numberOfDaysHours)
       : this._forecast;
 
-    const allTemps = forecast.flatMap((item) => (daily ? [item.temperature, item.templow ?? 0] : [item.temperature]));
-    const maxTemp = Math.max(...allTemps);
-    const minTemp = Math.min(...allTemps);
-    const range = maxTemp - minTemp || 1;
+    const { maxTemp, range } = temperatureRange(forecast, daily);
     const language = this.hass.locale.language;
 
     return html`
@@ -220,6 +250,7 @@ export class WeatherForecastColumnsCard extends LitElement {
         ${forecast.map((item) => {
           const date = new Date(item.datetime);
           const maxPos = ((maxTemp - item.temperature) / range) * temperatureAreaHeight;
+          const hasLow = daily && isNumber(item.templow);
           const minPos = ((maxTemp - (item.templow ?? 0)) / range) * temperatureAreaHeight + boxSize;
           const weekend = daily && [6, 0].includes(date.getDay());
           const dateText = daily ? date.toLocaleDateString(language, { day: 'numeric' }) : date.getHours();
@@ -241,14 +272,14 @@ export class WeatherForecastColumnsCard extends LitElement {
                     class="shape"
                     style=${daily ? '' : `background: rgba(${tempColor(item.temperature)}, 0.5);`}
                   ></div>
-                  <span>${item.temperature}</span>
+                  <span>${Math.round(item.temperature)}</span>
                 </div>
                 ${
-                  daily
+                  hasLow
                     ? html`
                         <div class="bubble min" style="top: ${minPos}px;">
                           <div class="shape"></div>
-                          <span>${item.templow}</span>
+                          <span>${Math.round(item.templow ?? 0)}</span>
                         </div>
                       `
                     : nothing

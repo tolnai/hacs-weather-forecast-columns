@@ -1,4 +1,6 @@
-import type { ActionConfig, ForecastMode, WeatherCardConfig } from './types';
+import type { ActionConfig, ForecastItem, ForecastMode, WeatherCardConfig } from './types';
+
+export const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 export const hasAction = (config?: ActionConfig): boolean => config !== undefined && config.action !== 'none';
 
@@ -37,3 +39,29 @@ export const tempColor = (temp: number): string => {
   if (temp <= 35) return '255, 0, 0'; // red
   return '139, 0, 0'; // dark red
 };
+
+// Highest temperature and the temperature range of the shown forecast. Missing values (e.g. no templow) are skipped.
+export const temperatureRange = (forecast: ForecastItem[], daily: boolean): { maxTemp: number; range: number } => {
+  const temps = forecast
+    .flatMap((item) => (daily ? [item.temperature, item.templow] : [item.temperature]))
+    .filter(isNumber);
+  if (temps.length === 0) {
+    return { maxTemp: 0, range: 1 };
+  }
+  const maxTemp = Math.max(...temps);
+  return { maxTemp, range: maxTemp - Math.min(...temps) || 1 };
+};
+
+// Fixed heights (px) of the card parts, see styles.ts.
+const PADDING = 12;
+const NAME_HEIGHT = 28;
+const DATE_ROWS_HEIGHT = 20 + 20 + 2;
+const ICON_HEIGHT = TEMP_SIZE + 5 + 10;
+
+// Card height in px, used for masonry (getCardSize) and sections (getGridOptions) layouts.
+export const estimateHeight = (config: WeatherCardConfig): number =>
+  (config.hideMargin ? 0 : PADDING) +
+  (config.hideName ? 0 : NAME_HEIGHT) +
+  DATE_ROWS_HEIGHT +
+  ICON_HEIGHT +
+  columnLayout(config).fullHeight;
