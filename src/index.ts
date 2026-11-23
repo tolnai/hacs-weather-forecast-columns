@@ -255,19 +255,42 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
     `;
   }
   
-  _renderWeatherForecast() {
-    const stateObj = this.hass.states[this.config.entity];
-    if (!stateObj) {
-      return html``;
-    }
+  // Renders the same column structure as the real forecast (same heights), so the card
+  // takes its final size immediately and does not jump when the forecast arrives.
+  _renderPlaceholder(stateObj: HassEntity | undefined, daily: boolean) {
+    const temperatureAreaHeight = this.config.height || 100;
+    const tempSize = 30;
+    const boxSize = tempSize * Math.sqrt(2);
+    const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + tempSize;
+    const count = this.config.numberOfDaysHours || (daily ? 7 : 12);
 
-    // Fallback to forecast attribute if service call hasn't populated data yet or failed
-    const forecastData = this._forecast.length > 0 
-      ? this._forecast 
-      : (stateObj.attributes.forecast || []);
+    return html`
+      ${stateObj ? this._renderName(stateObj) : this.config.hideName ? '' : html`<p class="name">&nbsp;</p>`}
+      <div class="forecast-columns loading" style="display: flex; overflow-x: auto; flex-grow: 1;">
+        ${Array.from({ length: count }).map(() => html`
+          <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3); flex-grow: 1; width: auto;">
+            <div class="date_day">&nbsp;</div>
+            <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">&nbsp;</div>
+            <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px auto; border-radius: ${(tempSize + 5) / 2}px; background: var(--shadow-color);"></div>
+            <div class="temperature" style="height: ${fullHeight}px; width: ${tempSize + 10}px; margin: 0 auto;"></div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
+  _renderWeatherForecast() {
+    const stateObj = this.hass?.states[this.config.entity];
+
+    // The `forecast` state attribute was removed in HA 2024.4, data only comes from the service call
+    const forecastData = this._forecast;
 
     const hourly = this.config.forecastMode === 'hourly';
     const daily = !hourly;
+
+    if (!stateObj || forecastData.length === 0) {
+      return this._renderPlaceholder(stateObj, daily);
+    }
 
     const allTemps = forecastData.reduce((acc: number[], day: any) => acc.concat(daily ? [day.temperature, day.templow] : [day.temperature]), []);
     const maxTemp = Math.max(...allTemps);

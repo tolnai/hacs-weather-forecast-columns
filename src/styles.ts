@@ -23,6 +23,9 @@ export default css`
   .main-padding {
     padding: 6px 16px 6px 16px;
   }
+  .loading {
+    opacity: 0.5;
+  }
   .name {
     font-weight: 300;
     font-size: var(--fontSize);
