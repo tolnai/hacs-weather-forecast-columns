@@ -1,127 +1,57 @@
-import { LitElement, html, type TemplateResult, type CSSResultGroup, PropertyValues } from 'lit';
+/*
+ * Author        : Gábor Tolnai
+ * Github        : https://github.com/tolnai/hacs-weather-forecast-columns
+ * Description   : Weather forecast columns card (like Időkép app)
+ */
+import { LitElement, html, nothing, type PropertyValues, type TemplateResult, type CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import {
-  type HomeAssistant,
-  hasAction,
-  type ActionHandlerEvent,
-  handleAction,
-  type ActionConfig,
-} from 'custom-card-helpers'; // This is a community maintained npm module with common helper functions/types. https://github.com/custom-cards/custom-card-helpers
-import { type HassEntity } from 'home-assistant-js-websocket';
-
-import clearNight from './assets/clear-night.svg';
-import cloudy from './assets/cloudy.svg';
-import cloudy2 from './assets/cloudy2.svg';
-import exceptional from './assets/exceptional.svg';
-import fog from './assets/fog.svg';
-import fog2 from './assets/fog2.svg';
-import hail from './assets/hail.svg';
-import hail2 from './assets/hail2.svg';
-import lightningRainy from './assets/lightning-rainy.svg';
-import lightningRainy2 from './assets/lightning-rainy2.svg';
-import lightning from './assets/lightning.svg';
-import lightning2 from './assets/lightning2.svg';
-import partlycloudy from './assets/partlycloudy.svg';
-import partlycloudy2 from './assets/partlycloudy2.svg';
-import pouring from './assets/pouring.svg';
-import pouring2 from './assets/pouring2.svg';
-import rainy from './assets/rainy.svg';
-import rainy2 from './assets/rainy2.svg';
-import snowyRainy from './assets/snowy-rainy.svg';
-import snowyRainy2 from './assets/snowy-rainy2.svg';
-import snowy from './assets/snowy.svg';
-import snowy2 from './assets/snowy2.svg';
-import sunny from './assets/sunny.svg';
-import windy from './assets/windy.svg';
+import type { HassEntity } from 'home-assistant-js-websocket';
 
 import styles from './styles';
-import editStyles from './styles-edit';
 import { actionHandler } from './ha-action-handler-directive';
+import type { ActionHandlerEvent, ForecastItem, HomeAssistant, WeatherCardConfig } from './types';
+import { columnLayout, hasAction, tempColor, TEMP_SIZE } from './utils';
+import { weatherIcon } from './icons';
+import { DEV, CARD_TAG, EDITOR_TAG } from './const';
+import './editor';
 import { version } from '../package.json';
 
-// Use this if you want both the dev and prod versions installed in the same instance - they will have different names
-// For local development use true, but change it to true whenever building a new release
-const DEV = false;
-
-// Change these values to your card's name, description and URL
-const cardId = 'hacs-weather-forecast-columns';
-const cardName = 'Weather Forecast Columns';
-const cardDescription = 'Weather Forecast Columns Card for Home Assistant (like Időkép app)';
-const cardUrl = 'https://github.com/tolnai/hacs-weather-forecast-columns';
-
-type MyCardConfig = {
-  entity: string;
-  name?: string;
-  hideName?: boolean;
-  forecastMode?: 'daily' | 'hourly';
-  numberOfDaysHours?: number;
-  iconPack?: number;
-  height?: number;
-  hideMargin?: boolean;
-  tap_action?: ActionConfig;
-  hold_action?: ActionConfig;
-  double_tap_action?: ActionConfig;
-};
-
-// Extend the Window interface to include loadCardHelpers
-declare global {
-  interface Window {
-    loadCardHelpers?: () => Promise<any>;
-  }
-}
-
-const loadHaForm = async () => {
-  if (customElements.get('ha-form') && customElements.get('hui-entities-card-editor')) return;
-  if (window.loadCardHelpers) {
-    const helpers = await window.loadCardHelpers();
-    if (!helpers) return;
-    const card = await helpers.createCardElement({ type: 'entities', entities: [] });
-    if (!card) return;
-    card.constructor.getConfigElement();
-  }
-};
-
+// eslint-disable-next-line no-console
 console.info(
-  `%c ${cardName}${DEV ? ' DEV' : ''} \n%c Version v${version}`,
+  `%c Weather Forecast Columns${DEV ? ' DEV' : ''} \n%c Version v${version}`,
   'color: orange; font-weight: bold; background: black',
   'color: white; font-weight: bold; background: dimgray',
 );
 
-// This puts your card into the UI card picker dialog
-// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
-  type: `${cardId}${DEV ? '-dev' : ''}`,
-  name: `${cardName}${DEV ? ' DEV' : ''}`,
-  preview: false, // Optional - defaults to false
-  description: cardDescription,
-  documentationURL: cardUrl,
+// This puts the card into the UI card picker dialog
+window.customCards = window.customCards ?? [];
+window.customCards.push({
+  type: CARD_TAG,
+  name: `Weather Forecast Columns${DEV ? ' DEV' : ''}`,
+  preview: false,
+  description: 'Weather Forecast Columns Card for Home Assistant (like Időkép app)',
+  documentationURL: 'https://github.com/tolnai/hacs-weather-forecast-columns',
 });
 
-@customElement(`${cardId}${DEV ? '-dev' : ''}`)
-export class HacsWeatherForecastColumnsCard extends LitElement {
+@customElement(CARD_TAG)
+export class WeatherForecastColumnsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private config!: MyCardConfig;
-  @state() private _forecast: any[] = [];
+  @state() private config!: WeatherCardConfig;
+  @state() private _forecast: ForecastItem[] = [];
   @state() private error?: TemplateResult;
 
-  constructor() {
-    super();
-  }
+  static styles: CSSResultGroup = styles;
 
-  // Connecting the editor to the card
   static getConfigElement() {
-    return document.createElement(`${cardId}-editor${DEV ? '-dev' : ''}`);
+    return document.createElement(EDITOR_TAG);
   }
 
-  // This is the default config when creating a new card
   static getStubConfig() {
     return {};
   }
 
-  // This is called when the config is changed/loaded
-  public setConfig(config?: MyCardConfig) {
+  public setConfig(config?: WeatherCardConfig) {
     if (!config) {
       throw this.createError('Invalid configuration.');
     }
@@ -131,7 +61,6 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
     this.config = config;
   }
 
-  // Initial (non-grid) size
   public getCardSize() {
     return 3;
   }
@@ -139,266 +68,166 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
   protected updated(changedProps: PropertyValues): void {
     super.updated(changedProps);
 
-    const oldConfig = changedProps.get('config') as MyCardConfig | undefined;
-    if (changedProps.has('config') && this.config?.entity !== oldConfig?.entity) {
-      this._fetchForecast();
-    } else if (changedProps.has('hass') && this.hass && this._forecast.length === 0) {
-      this._fetchForecast();
+    const oldConfig = changedProps.get('config') as WeatherCardConfig | undefined;
+    if (changedProps.has('config') && this.config.entity !== oldConfig?.entity) {
+      void this._fetchForecast();
+    } else if (changedProps.has('hass') && this._forecast.length === 0) {
+      void this._fetchForecast();
     }
   }
 
   private async _fetchForecast() {
-    if (!this.hass || !this.config || !this.config.entity) return;
+    if (!this.hass || !this.config.entity) return;
 
     try {
-      const forecastServiceResponse = await this.hass.connection.sendMessagePromise<any>({
-        type: "execute_script",
-        sequence: [{
-          "service": "weather.get_forecasts",
-          "data": {
-            entity_id: this.config.entity,
-            type: this.config.forecastMode,
+      const response = await this.hass.connection.sendMessagePromise<{
+        response?: Record<string, { forecast?: ForecastItem[] }>;
+      }>({
+        type: 'execute_script',
+        sequence: [
+          {
+            service: 'weather.get_forecasts',
+            data: { entity_id: this.config.entity, type: this.config.forecastMode },
+            target: { entity_id: this.config.entity },
+            response_variable: 'return_response',
           },
-          "target": { "entity_id": this.config.entity },
-          "response_variable": "return_response",
-        },
-        {
-          "stop": "done",
-          "response_variable": "return_response",
-        }]
+          { stop: 'done', response_variable: 'return_response' },
+        ],
       });
-      const forecast = forecastServiceResponse?.response?.[this.config.entity]?.forecast || [];
+      const forecast = response.response?.[this.config.entity]?.forecast ?? [];
       if (forecast.length > 0) {
         this._forecast = forecast;
       }
-    } catch (e) {
+    } catch {
       // Ignore error for production
     }
   }
 
-  // Action handling logic (handles fallback from entity action to global card default action)
-  private handleAction(event: ActionHandlerEvent): void {
-    if (this.hass && this.config && event.detail.action) {
-      event.preventDefault();
-      event.stopPropagation();
-      handleAction(
-        this,
-        this.hass,
-        this.config.tap_action ? this.config : { ...this.config, tap_action: { action: 'more-info' } as ActionConfig },
-        event.detail.action,
-      );
-    }
-  }
-
-  private createError(errorString: string): Error {
-    const error = new Error(errorString);
-    const errorCard = document.createElement('hui-error-card') as any;
-    (errorCard as any).setConfig({
-      type: 'error',
-      error,
-      origConfig: this.config,
-    });
+  private createError(message: string): Error {
+    const error = new Error(message);
+    const errorCard = document.createElement('hui-error-card') as HTMLElement & {
+      setConfig?: (config: Record<string, unknown>) => void;
+    };
+    errorCard.setConfig?.({ type: 'error', error, origConfig: this.config });
     this.error = html`${errorCard}`;
     return error;
   }
 
-  _fireMoreInfoEvent(entityId: string) {
-    this._fireHassEvent('hass-more-info', { entityId });
+  private _handleAction(ev: ActionHandlerEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    // Let Home Assistant execute the action: supports every action type (perform-action, confirmation, ...).
+    this.dispatchEvent(
+      new CustomEvent('hass-action', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          config: {
+            entity: this.config.entity,
+            tap_action: this.config.tap_action ?? { action: 'more-info' },
+            hold_action: this.config.hold_action,
+            double_tap_action: this.config.double_tap_action,
+          },
+          action: ev.detail.action,
+        },
+      }),
+    );
   }
 
-  _fireHassEvent(type: string, detail?: any) {
-    const e = new CustomEvent(type, {
-      detail: detail === null || detail === undefined ? {} : detail,
-      bubbles: true,
-      cancelable: false,
-      composed: true,
-    });
-    this.dispatchEvent(e);
-    return e;
-  }
-
-  static get styles(): CSSResultGroup {
-    return styles;
-  }
-
-  /*_renderButton(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    return html`
-      <span
-        @click=${() => this._callService(entityConfig, stateObj)}
-      >
-        Click me
-      </p>
-    `;
-  }*/
-  
-  _renderName(stateObj: HassEntity) {
+  private _renderName(stateObj?: HassEntity) {
     if (this.config.hideName) {
-      return '';
+      return nothing;
     }
-    //const nameSize = `${this.config.sampleNumber ?? 14}px`;
-    // variables can be passed to the CSS style code like below
-    // style="--fontSize:${nameSize};"
-    return html`
-      <p
-        class="name"
-        
-        @action=${(e: ActionHandlerEvent) => {
-          this.handleAction(e);
-        }}
-        .actionHandler=${actionHandler({
-          hasHold: hasAction(this.config.hold_action || this.config.hold_action),
-          hasDoubleClick: hasAction(this.config.double_tap_action || this.config.double_tap_action),
-        })}
-      >
-        ${this.config.name || stateObj.attributes.friendly_name}
-      </p>
-    `;
+    const name = this.config.name || stateObj?.attributes.friendly_name;
+    return html`<p class="name">${name ?? html`&nbsp;`}</p>`;
   }
-  
+
   // Renders the same column structure as the real forecast (same heights), so the card
   // takes its final size immediately and does not jump when the forecast arrives.
-  _renderPlaceholder(stateObj: HassEntity | undefined, daily: boolean) {
-    const temperatureAreaHeight = this.config.height || 100;
-    const tempSize = 30;
-    const boxSize = tempSize * Math.sqrt(2);
-    const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + tempSize;
+  private _renderPlaceholder(stateObj?: HassEntity) {
+    const { daily, fullHeight } = columnLayout(this.config);
     const count = this.config.numberOfDaysHours || (daily ? 7 : 12);
 
     return html`
-      ${stateObj ? this._renderName(stateObj) : this.config.hideName ? '' : html`<p class="name">&nbsp;</p>`}
-      <div class="forecast-columns loading" style="display: flex; overflow-x: auto; flex-grow: 1;">
-        ${Array.from({ length: count }).map(() => html`
-          <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3); flex-grow: 1; width: auto;">
-            <div class="date_day">&nbsp;</div>
-            <div class="date_dow" style="border-bottom: 2px solid rgba(128, 128, 128, 0.3);">&nbsp;</div>
-            <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px auto; border-radius: ${(tempSize + 5) / 2}px; background: var(--shadow-color);"></div>
-            <div class="temperature" style="height: ${fullHeight}px; width: ${tempSize + 10}px; margin: 0 auto;"></div>
-          </div>
-        `)}
+      ${this._renderName(stateObj)}
+      <div class="forecast-columns loading">
+        ${Array.from(
+          { length: count },
+          () => html`
+            <div class="day">
+              <div class="date_day">&nbsp;</div>
+              <div class="date_dow">&nbsp;</div>
+              <div class="icon"></div>
+              <div class="temperature" style="height: ${fullHeight}px;"></div>
+            </div>
+          `,
+        )}
       </div>
     `;
   }
 
-  _renderWeatherForecast() {
+  private _renderWeatherForecast() {
     const stateObj = this.hass?.states[this.config.entity];
-
-    // The `forecast` state attribute was removed in HA 2024.4, data only comes from the service call
-    const forecastData = this._forecast;
-
-    const hourly = this.config.forecastMode === 'hourly';
-    const daily = !hourly;
-
-    if (!stateObj || forecastData.length === 0) {
-      return this._renderPlaceholder(stateObj, daily);
+    if (!stateObj || this._forecast.length === 0) {
+      return this._renderPlaceholder(stateObj);
     }
 
-    const allTemps = forecastData.reduce((acc: number[], day: any) => acc.concat(daily ? [day.temperature, day.templow] : [day.temperature]), []);
+    const { daily, temperatureAreaHeight, boxSize, fullHeight } = columnLayout(this.config);
+    const forecast = this.config.numberOfDaysHours
+      ? this._forecast.slice(0, this.config.numberOfDaysHours)
+      : this._forecast;
+
+    const allTemps = forecast.flatMap((item) => (daily ? [item.temperature, item.templow ?? 0] : [item.temperature]));
     const maxTemp = Math.max(...allTemps);
     const minTemp = Math.min(...allTemps);
     const range = maxTemp - minTemp || 1;
-    const temperatureAreaHeight = this.config.height || 100;
-    const tempSize = 30;
-    const boxSize = tempSize * Math.sqrt(2);
-    const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + tempSize;
-
-    const forecastDays = this.config.numberOfDaysHours ? forecastData.slice(0, this.config.numberOfDaysHours) : forecastData;
-    const tempColor = (temp: number) => {
-      if (temp <= -20) return '128, 128, 128'; // grey
-      if (temp <= 5) return '0, 0, 255'; // blue
-      if (temp <= 15) return '0, 128, 0'; // dark green
-      if (temp <= 26) return '255, 255, 0'; // yellow
-      if (temp <= 30) return '255, 165, 0'; // orange
-      if (temp <= 35) return '255, 0, 0'; // red
-      return '139, 0, 0'; // dark red
-    };
+    const language = this.hass.locale.language;
 
     return html`
       ${this._renderName(stateObj)}
-      <div class="forecast-columns" style="display: flex; overflow-x: auto; flex-grow: 1;">
-        ${forecastDays.map((day: any) => {
-          const maxPos = ((maxTemp - day.temperature) / range) * temperatureAreaHeight;
-          const minPos = ((maxTemp - day.templow) / range) * temperatureAreaHeight + boxSize;
-          const weekend = [6, 0].includes(new Date(day.datetime).getDay());
-          const dateText = daily ? new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { day: 'numeric' }) : new Date(day.datetime).getHours();
+      <div class="forecast-columns">
+        ${forecast.map((item) => {
+          const date = new Date(item.datetime);
+          const maxPos = ((maxTemp - item.temperature) / range) * temperatureAreaHeight;
+          const minPos = ((maxTemp - (item.templow ?? 0)) / range) * temperatureAreaHeight + boxSize;
+          const weekend = daily && [6, 0].includes(date.getDay());
+          const dateText = daily ? date.toLocaleDateString(language, { day: 'numeric' }) : date.getHours();
           return html`
-          <div class="day" style="text-align: center; min-width: ${tempSize + 10}px; border-left: 1px solid rgba(128, 128, 128, 0.3); border-right: 1px solid rgba(128, 128, 128, 0.3); flex-grow: 1; width: auto;">
-            <div class="date_day" style="${daily && weekend ? 'color: var(--red-color);' : ''}">${dateText}</div>
-            <div class="date_dow" style="${daily && weekend ? 'color: var(--red-color);' : ''} border-bottom: 2px solid rgba(128, 128, 128, 0.3);">${new Date(day.datetime).toLocaleDateString(this.hass.locale.language, { weekday: 'short' })}</div>
-            <div class="icon" style="width: ${tempSize + 5}px; height: ${tempSize + 5}px; margin: 5px auto; border-radius: ${(tempSize + 5) / 2}px; background: var(--shadow-color);">
-              <img src="${this._getWeatherIcon(day.condition)}" alt="${day.condition}" width="${tempSize + 5}" height="${tempSize + 5}" />
-            </div>
-            <div class="temperature" style="height: ${fullHeight}px; position: relative; text-align: center; text-align: center; width: ${tempSize + 10}px; margin: 0 auto;">
-              <div class="max" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${maxPos}px; left: 5px;">
-                ${daily ? html`
-                <div style="
-                  position: absolute; top:0; left:0; right:0; bottom:0;
-                  border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-                  background: var(--accent-color); opacity: 0.6; z-index: 0;
-                "></div>
-                ` : html`
-                <div style="
-                  position: absolute; top:0; left:0; right:0; bottom:0;
-                  border-radius: 50%;
-                  background: rgba(${tempColor(day.temperature)}, 0.5); z-index: 0;
-                "></div>
-                `}
-                <span style="position: relative; z-index: 1;">${day.temperature}</span>
+            <div class="day ${weekend ? 'weekend' : ''}">
+              <div class="date_day">${dateText}</div>
+              <div class="date_dow">${date.toLocaleDateString(language, { weekday: 'short' })}</div>
+              <div class="icon">
+                <img
+                  src=${weatherIcon(item.condition, this.config.iconPack)}
+                  alt=${item.condition ?? ''}
+                  width=${TEMP_SIZE + 5}
+                  height=${TEMP_SIZE + 5}
+                />
               </div>
-              ${daily ? html`
-              <div class="min" style="font-size: ${tempSize - 10}px; line-height: ${tempSize}px; width: ${tempSize}px; height: ${tempSize}px; position: absolute; top: ${minPos}px; left: 5px;">
-                <div style="
-                  position: absolute; top:0; left:0; right:0; bottom:0;
-                  border-radius: 0 50% 50% 50%; transform: rotate(45deg);
-                  background: var(--primary-color); opacity: 0.6; z-index: 0;
-                "></div>
-                <span style="position: relative; z-index: 1;">${day.templow}</span>
+              <div class="temperature" style="height: ${fullHeight}px;">
+                <div class="bubble ${daily ? 'max' : 'hourly'}" style="top: ${maxPos}px;">
+                  <div
+                    class="shape"
+                    style=${daily ? '' : `background: rgba(${tempColor(item.temperature)}, 0.5);`}
+                  ></div>
+                  <span>${item.temperature}</span>
+                </div>
+                ${
+                  daily
+                    ? html`
+                        <div class="bubble min" style="top: ${minPos}px;">
+                          <div class="shape"></div>
+                          <span>${item.templow}</span>
+                        </div>
+                      `
+                    : nothing
+                }
               </div>
-              ` : ''}
             </div>
-          </div>
-        `})}
+          `;
+        })}
       </div>
     `;
-  }
-
-  _getWeatherIcon(condition: string) {
-    const weatherIcons = [{
-      'clear-night': clearNight,
-      cloudy: cloudy,
-      exceptional: exceptional,
-      fog: fog,
-      hail: hail,
-      lightning: lightning,
-      'lightning-rainy': lightningRainy,
-      partlycloudy: partlycloudy,
-      pouring: pouring,
-      rainy: rainy,
-      snowy: snowy,
-      'snowy-rainy': snowyRainy,
-      sunny: sunny,
-      windy: windy,
-      'windy-variant': windy,
-    },
-    {
-      'clear-night': clearNight,
-      cloudy: cloudy2,
-      exceptional: exceptional,
-      fog: fog2,
-      hail: hail2,
-      lightning: lightning2,
-      'lightning-rainy': lightningRainy2,
-      partlycloudy: partlycloudy2,
-      pouring: pouring2,
-      rainy: rainy2,
-      snowy: snowy2,
-      'snowy-rainy': snowyRainy2,
-      sunny: sunny,
-      windy: windy,
-      'windy-variant': windy,
-    }];
-    const icons = weatherIcons[(this.config.iconPack || 1) - 1];
-
-    return icons[condition] || '';
   }
 
   // https://lit.dev/docs/components/rendering/
@@ -411,173 +240,15 @@ export class HacsWeatherForecastColumnsCard extends LitElement {
       <ha-card>
         <div
           class="main ${this.config.hideMargin ? '' : 'main-padding'}"
-          @action=${(e: ActionHandlerEvent) => {
-            this.handleAction(e);
-          }}
+          @action=${this._handleAction}
           .actionHandler=${actionHandler({
-            hasHold: hasAction(this.config.hold_action || this.config.hold_action),
-            hasDoubleClick: hasAction(this.config.double_tap_action || this.config.double_tap_action),
+            hasHold: hasAction(this.config.hold_action),
+            hasDoubleClick: hasAction(this.config.double_tap_action),
           })}
         >
-          ${!this.config.entity ? html` You need to define an entity ` : this._renderWeatherForecast()}
+          ${this._renderWeatherForecast()}
         </div>
       </ha-card>
-    `;
-  }
-}
-
-// The below is the code for the editor UI of the card, which is a lit component as well.
-
-const actions: string[] = ['navigate', 'url', 'perform-action', 'none'];
-
-@customElement(`${cardId}-editor${DEV ? '-dev' : ''}`)
-export class HacsWeatherForecastColumnsCardEditor extends LitElement {
-  @property({ attribute: false }) public hass!: HomeAssistant;
-
-  @state() private _config!: MyCardConfig;
-  @state() private _selectedTab = 'configuration';
-
-  constructor() {
-    super();
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    loadHaForm();
-  }
-
-  setConfig(config: MyCardConfig) {
-    this._config = config;
-  }
-
-  // https://lit.dev/docs/components/styles/
-  static get styles(): CSSResultGroup {
-    return editStyles;
-  }
-
-  _computeLabel(e) {
-    return e.label || e.name;
-  }
-
-  _valuesChanged(ev: CustomEvent) {
-    this._config = ev.detail.value;
-    this._publishConfig();
-  }
-
-  _publishConfig() {
-    const event = new CustomEvent('config-changed', {
-      detail: { config: this._config },
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(event);
-  }
-
-  _handleSwitchTab(ev: CustomEvent) {
-    this._selectedTab = ev.detail.name;
-  }
-
-  // This should include everything from the main MyCardConfig type
-  // Selectors can be found here: https://www.home-assistant.io/docs/blueprint/selectors/
-  _renderConfigurationEditor() {
-    return html`
-      <div class="box">
-        <h3>Entity</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'weather' } }, required: true },
-            { name: 'name', label: 'Name', selector: { text: {} } },
-            { name: 'hideName', label: 'Hide name?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Layout</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            {
-              name: 'forecastMode',
-              label: 'Forecast type (default: daily)',
-              selector: {
-                select: {
-                  options: [
-                    { label: 'Hourly', value: 'hourly' },
-                    { label: 'Daily', value: 'daily' },
-                  ],
-                  mode: 'dropdown',
-                },
-              },
-            },
-            {
-              name: 'numberOfDaysHours', label: 'Number of days/hours (default: all)', selector: { number: {} },
-            },
-            {
-              name: 'iconPack',
-              label: 'Icon pack',
-              selector: {
-                select: {
-                  options: [
-                    { label: 'Brighter', value: 1 },
-                    { label: 'Darker', value: 2 },
-                  ],
-                  mode: 'dropdown',
-                },
-              },
-            },
-            {
-              name: 'height', label: 'Height (px, default: 100)', selector: { number: {} },
-            },
-            { name: 'hideMargin', label: 'Hide margin?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Actions (override defaults)</h3>
-        <p class="intro">Individual actions of this entity (override any default actions).</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            { name: 'tap_action', label: 'Tap action', selector: { ui_action: { actions } } },
-            { name: 'hold_action', label: 'Hold action', selector: { ui_action: { actions } } },
-            { name: 'double_tap_action', label: 'Double tap action', selector: { ui_action: { actions } } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-    `;
-  }
-
-  _renderContent() {
-    if (this._selectedTab === 'configuration') {
-      return this._renderConfigurationEditor();
-    }
-    return html``;
-  }
-
-  render() {
-    if (!this.hass || !this._config) {
-      return html``;
-    }
-
-    return html`
-      <div class="card-config">
-        <div class="toolbar">
-          <sl-tab-group @sl-tab-show=${this._handleSwitchTab}>
-            <sl-tab slot="nav" panel="configuration" .active=${this._selectedTab === 'configuration'}>Configuration</sl-tab>
-          </sl-tab-group>
-        </div>
-        <div id="editor">${this._renderContent()}</div>
-      </div>
     `;
   }
 }
