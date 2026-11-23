@@ -41,6 +41,12 @@ export interface ForecastItem {
   [key: string]: unknown;
 }
 
+// Event of the weather/subscribe_forecast subscription.
+export interface ForecastEvent {
+  type: ForecastMode;
+  forecast: ForecastItem[] | null;
+}
+
 // Card picker registry and HA card helpers on window.
 declare global {
   interface Window {

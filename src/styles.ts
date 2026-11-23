@@ -31,8 +31,22 @@ export default css`
     overflow-x: auto;
     flex-grow: 1;
   }
-  .loading {
+  .forecast-columns.loading {
+    position: relative;
+  }
+  .loading .day {
     opacity: 0.5;
+  }
+  .message {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    text-align: center;
+    color: var(--warning-color);
+    z-index: 1;
   }
   .day {
     flex-grow: 1;

@@ -1,6 +1,9 @@
-import type { ActionConfig, WeatherCardConfig } from './types';
+import type { ActionConfig, ForecastMode, WeatherCardConfig } from './types';
 
 export const hasAction = (config?: ActionConfig): boolean => config !== undefined && config.action !== 'none';
+
+export const forecastModeOf = (config: WeatherCardConfig): ForecastMode =>
+  config.forecastMode === 'hourly' ? 'hourly' : 'daily';
 
 export const DEFAULT_TEMPERATURE_HEIGHT = 100;
 // Size of one temperature bubble in px.
@@ -17,7 +20,7 @@ export interface ColumnLayout {
 }
 
 export const columnLayout = (config: WeatherCardConfig): ColumnLayout => {
-  const daily = config.forecastMode !== 'hourly';
+  const daily = forecastModeOf(config) === 'daily';
   const temperatureAreaHeight = config.height && config.height >= 20 ? config.height : DEFAULT_TEMPERATURE_HEIGHT;
   const boxSize = TEMP_SIZE * Math.sqrt(2);
   const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + TEMP_SIZE;

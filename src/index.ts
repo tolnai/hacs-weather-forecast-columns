@@ -9,8 +9,8 @@ import type { HassEntity } from 'home-assistant-js-websocket';
 
 import styles from './styles';
 import { actionHandler } from './ha-action-handler-directive';
-import type { ActionHandlerEvent, ForecastItem, HomeAssistant, WeatherCardConfig } from './types';
-import { columnLayout, hasAction, tempColor, TEMP_SIZE } from './utils';
+import type { ActionHandlerEvent, ForecastEvent, ForecastItem, HomeAssistant, WeatherCardConfig } from './types';
+import { columnLayout, forecastModeOf, hasAction, tempColor, TEMP_SIZE } from './utils';
 import { weatherIcon } from './icons';
 import { DEV, CARD_TAG, EDITOR_TAG } from './const';
 import './editor';
@@ -40,6 +40,10 @@ export class WeatherForecastColumnsCard extends LitElement {
   @state() private config!: WeatherCardConfig;
   @state() private _forecast: ForecastItem[] = [];
   @state() private error?: TemplateResult;
+  @state() private _forecastError?: string;
+
+  private _unsubForecast?: Promise<() => Promise<void>>;
+  private _subscriptionKey?: string;
 
   static styles: CSSResultGroup = styles;
 
@@ -65,42 +69,67 @@ export class WeatherForecastColumnsCard extends LitElement {
     return 3;
   }
 
-  protected updated(changedProps: PropertyValues): void {
-    super.updated(changedProps);
-
-    const oldConfig = changedProps.get('config') as WeatherCardConfig | undefined;
-    if (changedProps.has('config') && this.config.entity !== oldConfig?.entity) {
-      void this._fetchForecast();
-    } else if (changedProps.has('hass') && this._forecast.length === 0) {
-      void this._fetchForecast();
+  public connectedCallback() {
+    super.connectedCallback();
+    if (this.hasUpdated) {
+      this._subscribeForecast();
     }
   }
 
-  private async _fetchForecast() {
-    if (!this.hass || !this.config.entity) return;
+  public disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeForecast();
+  }
 
-    try {
-      const response = await this.hass.connection.sendMessagePromise<{
-        response?: Record<string, { forecast?: ForecastItem[] }>;
-      }>({
-        type: 'execute_script',
-        sequence: [
-          {
-            service: 'weather.get_forecasts',
-            data: { entity_id: this.config.entity, type: this.config.forecastMode },
-            target: { entity_id: this.config.entity },
-            response_variable: 'return_response',
-          },
-          { stop: 'done', response_variable: 'return_response' },
-        ],
-      });
-      const forecast = response.response?.[this.config.entity]?.forecast ?? [];
-      if (forecast.length > 0) {
-        this._forecast = forecast;
-      }
-    } catch {
-      // Ignore error for production
+  protected updated(changedProps: PropertyValues): void {
+    super.updated(changedProps);
+    if (changedProps.has('hass') || changedProps.has('config')) {
+      this._subscribeForecast();
     }
+  }
+
+  // The forecast comes from a websocket subscription (same as the built-in weather card): it works for
+  // non-admin users too, and Home Assistant pushes every forecast update. Resubscribes when the entity or
+  // the forecast type changes; the websocket library resubscribes by itself after a reconnect.
+  private _subscribeForecast() {
+    if (!this.hass || !this.config || !this.isConnected) {
+      return;
+    }
+    const entityId = this.config.entity;
+    const forecastType = forecastModeOf(this.config);
+    const key = `${entityId}|${forecastType}`;
+    if (this._subscriptionKey === key) {
+      return;
+    }
+    // Wait until the entity exists, a subscription to a missing entity fails.
+    if (!this.hass.states[entityId]) {
+      return;
+    }
+    this._unsubscribeForecast();
+    this._subscriptionKey = key;
+    this._forecast = [];
+    this._forecastError = undefined;
+    const unsub = this.hass.connection.subscribeMessage<ForecastEvent>(
+      (event) => {
+        this._forecast = event.forecast ?? [];
+      },
+      { type: 'weather/subscribe_forecast', entity_id: entityId, forecast_type: forecastType },
+    );
+    this._unsubForecast = unsub;
+    unsub.catch((err: unknown) => {
+      if (this._unsubForecast !== unsub) {
+        return;
+      }
+      this._unsubForecast = undefined;
+      this._forecastError = (err as { message?: string } | undefined)?.message ?? 'Forecast not available';
+    });
+  }
+
+  private _unsubscribeForecast() {
+    const unsub = this._unsubForecast;
+    this._unsubForecast = undefined;
+    this._subscriptionKey = undefined;
+    unsub?.then((fn) => fn()).catch(() => undefined);
   }
 
   private createError(message: string): Error {
@@ -144,13 +173,14 @@ export class WeatherForecastColumnsCard extends LitElement {
 
   // Renders the same column structure as the real forecast (same heights), so the card
   // takes its final size immediately and does not jump when the forecast arrives.
-  private _renderPlaceholder(stateObj?: HassEntity) {
+  private _renderPlaceholder(stateObj?: HassEntity, message?: string) {
     const { daily, fullHeight } = columnLayout(this.config);
     const count = this.config.numberOfDaysHours || (daily ? 7 : 12);
 
     return html`
       ${this._renderName(stateObj)}
       <div class="forecast-columns loading">
+        ${message ? html`<div class="message">${message}</div>` : nothing}
         ${Array.from(
           { length: count },
           () => html`
@@ -169,7 +199,8 @@ export class WeatherForecastColumnsCard extends LitElement {
   private _renderWeatherForecast() {
     const stateObj = this.hass?.states[this.config.entity];
     if (!stateObj || this._forecast.length === 0) {
-      return this._renderPlaceholder(stateObj);
+      const message = this.hass && !stateObj ? `Entity not available: ${this.config.entity}` : this._forecastError;
+      return this._renderPlaceholder(stateObj, message);
     }
 
     const { daily, temperatureAreaHeight, boxSize, fullHeight } = columnLayout(this.config);
