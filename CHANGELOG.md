@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.1 (2026-11-25)
+
+- Screenshots in the README
+
 ## v0.1.0 (2026-11-25)
 
 First release.
