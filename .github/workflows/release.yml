@@ -1,0 +1,73 @@
+# Creates a GitHub release when a version tag (e.g. 1.0.0) is pushed.
+#
+# Before tagging:
+#   1. set "version" in package.json to the new version
+#   2. add a "## vX.Y.Z (date)" section to CHANGELOG.md (it becomes the release notes)
+#   3. commit, then: git tag X.Y.Z && git push origin main X.Y.Z
+# Can also be started by hand (Actions -> Release -> Run workflow) for an existing tag.
+name: Release
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. 1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.TAG }}
+      - run: corepack enable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn typecheck
+      - run: yarn lint
+      - run: yarn test
+
+      - name: Check package.json version matches the tag
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::package.json version ($version) does not match tag ($TAG)"
+            exit 1
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          awk -v ver="$TAG" '
+            $0 ~ "^## v" ver "( |$)" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No '## v$TAG' section in CHANGELOG.md"
+            exit 1
+          fi
+
+      - run: yarn build
+
+      - name: Check this is not a DEV build
+        run: |
+          if grep -q -- "-dev" dist/hacs-weather-forecast-columns.js; then
+            echo "::error::dist/hacs-weather-forecast-columns.js is a DEV build; the card would register as hacs-weather-forecast-columns-dev"
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" dist/hacs-weather-forecast-columns.js --title "$TAG" --notes-file release-notes.md

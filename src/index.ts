@@ -37,7 +37,7 @@ window.customCards = window.customCards ?? [];
 window.customCards.push({
   type: CARD_TAG,
   name: `Weather Forecast Columns${DEV ? ' DEV' : ''}`,
-  preview: false,
+  preview: true,
   description: 'Weather Forecast Columns Card for Home Assistant (like Időkép app)',
   documentationURL: 'https://github.com/tolnai/hacs-weather-forecast-columns',
 });
