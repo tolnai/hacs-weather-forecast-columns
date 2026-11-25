@@ -16,6 +16,12 @@ The card has a visual editor, but all configuration options are detailed below.
 
 Check out my other work at [https://github.com/tolnai/home_assistant_cookbook](https://github.com/tolnai/home_assistant_cookbook).
 
+## Samples
+
+![Daily forecast](images/daily.png)
+
+![Hourly forecast](images/hourly.png)
+
 ## Options
 
 | Name              | Type    | Default       | Description                                                       |
