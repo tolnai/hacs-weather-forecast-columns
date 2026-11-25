@@ -34,11 +34,12 @@ export const columnLayout = (config: WeatherCardConfig): ColumnLayout => {
 // Colors of the hourly temperature bubbles: Home Assistant theme colors (with their default values as
 // fallback), dense at low temperatures so that winter days are not all the same color.
 const TEMP_COLORS: [max: number, color: string, darkText?: boolean][] = [
-  [-10, 'var(--indigo-color, #3f51b5)'],
+  [-10, 'var(--deep-purple-color, #673ab7)'],
+  [-5, 'var(--indigo-color, #3f51b5)'],
   [0, 'var(--blue-color, #2196f3)'],
-  [5, 'var(--cyan-color, #00bcd4)', true],
-  [10, 'var(--teal-color, #009688)'],
-  [15, 'var(--green-color, #4caf50)'],
+  [5, 'var(--teal-color, #009688)'],
+  [10, 'var(--green-color, #4caf50)'],
+  [15, 'var(--light-green-color, #8bc34a)', true],
   [20, 'var(--lime-color, #cddc39)', true],
   [25, 'var(--amber-color, #ffc107)', true],
   [30, 'var(--orange-color, #ff9800)'],

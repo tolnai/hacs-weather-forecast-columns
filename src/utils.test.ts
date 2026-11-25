@@ -63,17 +63,19 @@ describe('hasAction', () => {
 
 describe('tempColor', () => {
   it('maps temperatures to theme colors', () => {
-    expect(tempColor(-15).color).toBe('var(--indigo-color, #3f51b5)');
+    expect(tempColor(-15).color).toBe('var(--deep-purple-color, #673ab7)');
+    expect(tempColor(-7).color).toBe('var(--indigo-color, #3f51b5)');
     expect(tempColor(0).color).toBe('var(--blue-color, #2196f3)');
-    expect(tempColor(3).color).toBe('var(--cyan-color, #00bcd4)');
+    expect(tempColor(3).color).toBe('var(--teal-color, #009688)');
     expect(tempColor(40)).toEqual({ color: 'var(--red-color, #f44336)', darkText: false });
   });
   it('uses the rounded temperature', () => {
     expect(tempColor(0.4).color).toBe('var(--blue-color, #2196f3)');
-    expect(tempColor(0.6).color).toBe('var(--cyan-color, #00bcd4)');
+    expect(tempColor(0.6).color).toBe('var(--teal-color, #009688)');
   });
   it('uses dark text on light colors', () => {
     expect(tempColor(22).darkText).toBe(true);
-    expect(tempColor(12).darkText).toBe(false);
+    expect(tempColor(12).darkText).toBe(true);
+    expect(tempColor(7).darkText).toBe(false);
   });
 });
