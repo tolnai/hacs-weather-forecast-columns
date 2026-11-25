@@ -247,17 +247,22 @@ export class WeatherForecastColumnsCard extends LitElement {
     return html`
       ${this._renderName(stateObj)}
       <div class="forecast-columns">
-        ${forecast.map((item) => {
+        ${forecast.map((item, index) => {
           const date = new Date(item.datetime);
           const maxPos = ((maxTemp - item.temperature) / range) * temperatureAreaHeight;
           const hasLow = daily && isNumber(item.templow);
           const minPos = ((maxTemp - (item.templow ?? 0)) / range) * temperatureAreaHeight + boxSize;
           const weekend = daily && [6, 0].includes(date.getDay());
           const dateText = daily ? date.toLocaleDateString(language, { day: 'numeric' }) : date.getHours();
+          // Hourly: the day is only shown in the first column and where a new day starts.
+          const showDay = daily || index === 0 || date.getHours() === 0;
+          const hourlyColor = daily ? undefined : tempColor(item.temperature);
           return html`
             <div class="day ${weekend ? 'weekend' : ''}">
               <div class="date_day">${dateText}</div>
-              <div class="date_dow">${date.toLocaleDateString(language, { weekday: 'short' })}</div>
+              <div class="date_dow">
+                ${showDay ? date.toLocaleDateString(language, { weekday: 'short' }) : html`&nbsp;`}
+              </div>
               <div class="icon">
                 <img
                   src=${weatherIcon(item.condition, this.config.iconPack)}
@@ -267,11 +272,11 @@ export class WeatherForecastColumnsCard extends LitElement {
                 />
               </div>
               <div class="temperature" style="height: ${fullHeight}px;">
-                <div class="bubble ${daily ? 'max' : 'hourly'}" style="top: ${maxPos}px;">
-                  <div
-                    class="shape"
-                    style=${daily ? '' : `background: rgba(${tempColor(item.temperature)}, 0.5);`}
-                  ></div>
+                <div
+                  class="bubble ${daily ? 'max' : 'hourly'} ${hourlyColor?.darkText ? 'dark-text' : ''}"
+                  style="top: ${maxPos}px;"
+                >
+                  <div class="shape" style=${hourlyColor ? `background: ${hourlyColor.color};` : ''}></div>
                   <span>${Math.round(item.temperature)}</span>
                 </div>
                 ${

@@ -29,15 +29,26 @@ export const columnLayout = (config: WeatherCardConfig): ColumnLayout => {
   return { daily, temperatureAreaHeight, boxSize, fullHeight };
 };
 
-// Background color (r, g, b) of the hourly temperature bubbles.
-export const tempColor = (temp: number): string => {
-  if (temp <= -20) return '128, 128, 128'; // grey
-  if (temp <= 5) return '0, 0, 255'; // blue
-  if (temp <= 15) return '0, 128, 0'; // dark green
-  if (temp <= 26) return '255, 255, 0'; // yellow
-  if (temp <= 30) return '255, 165, 0'; // orange
-  if (temp <= 35) return '255, 0, 0'; // red
-  return '139, 0, 0'; // dark red
+// Colors of the hourly temperature bubbles: Home Assistant theme colors (with their default values as
+// fallback), dense at low temperatures so that winter days are not all the same color.
+const TEMP_COLORS: [max: number, color: string, darkText?: boolean][] = [
+  [-10, 'var(--indigo-color, #3f51b5)'],
+  [0, 'var(--blue-color, #2196f3)'],
+  [5, 'var(--cyan-color, #00bcd4)', true],
+  [10, 'var(--teal-color, #009688)'],
+  [15, 'var(--green-color, #4caf50)'],
+  [20, 'var(--lime-color, #cddc39)', true],
+  [25, 'var(--amber-color, #ffc107)', true],
+  [30, 'var(--orange-color, #ff9800)'],
+  [35, 'var(--deep-orange-color, #ff5722)'],
+];
+
+export const tempColor = (temp: number): { color: string; darkText: boolean } => {
+  const rounded = Math.round(temp);
+  const match = TEMP_COLORS.find(([max]) => rounded <= max);
+  return match
+    ? { color: match[1], darkText: match[2] ?? false }
+    : { color: 'var(--red-color, #f44336)', darkText: false };
 };
 
 // Highest temperature and the temperature range of the shown forecast. Missing values (e.g. no templow) are skipped.

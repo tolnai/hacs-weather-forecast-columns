@@ -60,9 +60,18 @@ describe('hasAction', () => {
 });
 
 describe('tempColor', () => {
-  it('maps temperatures to colors', () => {
-    expect(tempColor(0)).toBe('0, 0, 255');
-    expect(tempColor(20)).toBe('255, 255, 0');
-    expect(tempColor(40)).toBe('139, 0, 0');
+  it('maps temperatures to theme colors', () => {
+    expect(tempColor(-15).color).toBe('var(--indigo-color, #3f51b5)');
+    expect(tempColor(0).color).toBe('var(--blue-color, #2196f3)');
+    expect(tempColor(3).color).toBe('var(--cyan-color, #00bcd4)');
+    expect(tempColor(40)).toEqual({ color: 'var(--red-color, #f44336)', darkText: false });
+  });
+  it('uses the rounded temperature', () => {
+    expect(tempColor(0.4).color).toBe('var(--blue-color, #2196f3)');
+    expect(tempColor(0.6).color).toBe('var(--cyan-color, #00bcd4)');
+  });
+  it('uses dark text on light colors', () => {
+    expect(tempColor(22).darkText).toBe(true);
+    expect(tempColor(12).darkText).toBe(false);
   });
 });

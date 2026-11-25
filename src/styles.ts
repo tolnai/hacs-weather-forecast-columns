@@ -94,6 +94,11 @@ export default css`
   .bubble span {
     position: relative;
     z-index: 1;
+    color: #fff;
+    font-weight: 500;
+  }
+  .bubble.dark-text span {
+    color: #212121;
   }
   .shape {
     position: absolute;
@@ -103,14 +108,12 @@ export default css`
   .max .shape {
     border-radius: 50% 50% 50% 0;
     transform: rotate(-45deg);
-    background: var(--accent-color);
-    opacity: 0.6;
+    background: var(--red-color, #f44336);
   }
   .min .shape {
     border-radius: 0 50% 50% 50%;
     transform: rotate(45deg);
-    background: var(--primary-color);
-    opacity: 0.6;
+    background: var(--blue-color, #2196f3);
   }
   .hourly .shape {
     border-radius: 50%;
