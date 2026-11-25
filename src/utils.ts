@@ -25,7 +25,9 @@ export const columnLayout = (config: WeatherCardConfig): ColumnLayout => {
   const daily = forecastModeOf(config) === 'daily';
   const temperatureAreaHeight = config.height && config.height >= 20 ? config.height : DEFAULT_TEMPERATURE_HEIGHT;
   const boxSize = TEMP_SIZE * Math.sqrt(2);
-  const fullHeight = daily ? temperatureAreaHeight + 2 * boxSize : temperatureAreaHeight + TEMP_SIZE;
+  // Both layouts keep the same free space (boxSize - TEMP_SIZE, ~12px) under the lowest bubble, so the
+  // horizontal scrollbar does not cover it.
+  const fullHeight = temperatureAreaHeight + (daily ? 2 * boxSize : boxSize);
   return { daily, temperatureAreaHeight, boxSize, fullHeight };
 };
 

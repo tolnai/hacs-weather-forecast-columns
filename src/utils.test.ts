@@ -23,7 +23,7 @@ describe('columnLayout', () => {
   });
   it('reserves room for two bubbles in daily and one in hourly mode', () => {
     expect(columnLayout({ entity: 'weather.x' }).fullHeight).toBeCloseTo(100 + 2 * 30 * Math.SQRT2);
-    expect(columnLayout({ entity: 'weather.x', forecastMode: 'hourly' }).fullHeight).toBe(130);
+    expect(columnLayout({ entity: 'weather.x', forecastMode: 'hourly' }).fullHeight).toBeCloseTo(100 + 30 * Math.SQRT2);
   });
 });
 
@@ -46,8 +46,10 @@ describe('temperatureRange', () => {
 describe('estimateHeight', () => {
   it('adds up the fixed parts', () => {
     const hourly = { entity: 'weather.x', forecastMode: 'hourly' as const };
-    expect(estimateHeight(hourly)).toBe(12 + 28 + 42 + 45 + 130);
-    expect(estimateHeight({ ...hourly, hideName: true, hideMargin: true })).toBe(42 + 45 + 130);
+    expect(estimateHeight(hourly)).toBeCloseTo(12 + 28 + 42 + 45 + 100 + 30 * Math.SQRT2);
+    expect(estimateHeight({ ...hourly, hideName: true, hideMargin: true })).toBeCloseTo(
+      42 + 45 + 100 + 30 * Math.SQRT2,
+    );
   });
 });
 
