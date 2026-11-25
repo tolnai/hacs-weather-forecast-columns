@@ -1,10 +1,10 @@
 # Weather Forecast Columns Card for Home Assistant
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Custom-41BDF5.svg)](#installation)
 [![Total downloads](https://img.shields.io/github/downloads/tolnai/hacs-weather-forecast-columns/total)](https://github.com/tolnai/hacs-weather-forecast-columns/releases)
 [![Current version](https://img.shields.io/github/v/release/tolnai/hacs-weather-forecast-columns)](https://github.com/tolnai/hacs-weather-forecast-columns/releases/latest)
 
-This is a custom card loaded via [HACS](https://hacs.xyz) into Home Assistant, which shows the weather forecast in columns, in the style of the Időkép app. Each column is a day (or an hour) with its weather icon, and the temperatures are drawn at a height matching their value, so the trend is visible at a glance.
+This is a custom card for Home Assistant, installed from the Marketplace (or HACS on older versions), which shows the weather forecast in columns, in the style of the Időkép app. Each column is a day (or an hour) with its weather icon, and the temperatures are drawn at a height matching their value, so the trend is visible at a glance.
 
 - Daily forecast: high and low temperature drops
 - Hourly forecast: temperature bubbles colored by temperature
@@ -37,14 +37,21 @@ Actions use the usual Home Assistant action configuration. By default, tapping t
 
 ## Installation
 
-Preferred method of installation is [Home Assistant Community Store](https://github.com/hacs/integration).
+Requires Home Assistant 2024.8 or newer.
 
-- Open HACS in Home Assistant, click the "..." menu, Custom repositories
+### Home Assistant 2026.11 and newer: Marketplace
+
+- Go to Settings > Marketplace and select **Add from link** in the upper-right corner
+- Enter `tolnai/hacs-weather-forecast-columns` (or the full URL of this repo) and select Add. If asked, connect GitHub and pick type **Dashboards**
+- Open "Weather Forecast Columns Card" in the list and select Install
+- After reloading the page, the card will be available in the card picker
+
+### Older Home Assistant versions: HACS
+
+- Open [HACS](https://hacs.xyz) in Home Assistant, click the "..." menu, Custom repositories
 - Copy the URL of this repo (<https://github.com/tolnai/hacs-weather-forecast-columns>), pick type "Dashboard" and press Add
 - Search for "weather forecast columns", pick it from the list, press Download
 - After reloading the page, the card will be available in the card picker
-
-Requires Home Assistant 2024.8 or newer.
 
 ## Examples
 
