@@ -11,6 +11,7 @@ export default {
     file: '../www/hacs-weather-forecast-columns.js',
     format: 'es',
     sourcemap: true,
+    intro: 'const __WEATHER_COLUMNS_DEV__ = true;',
   },
   plugins: [
     image(),

@@ -11,6 +11,8 @@ export default {
   output: {
     file: 'dist/hacs-weather-forecast-columns.js',
     format: 'es',
+    // Never a DEV build, see src/const.ts
+    intro: 'const __WEATHER_COLUMNS_DEV__ = false;',
   },
   plugins: [image(), nodeResolve(), commonjs(), typescript(), json(), terser(), gzipPlugin()],
 };
