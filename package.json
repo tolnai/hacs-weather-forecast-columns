@@ -3,7 +3,7 @@
   "description": "HACS Weather Forecast Columns Card for Home Assistant (like Időkép app)",
   "repository": "https://github.com/tolnai/hacs-weather-forecast-columns",
   "author": "Gábor Tolnai",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "module": "hacs-weather-forecast-columns.js",
   "keywords": [
     "home-assistant",
