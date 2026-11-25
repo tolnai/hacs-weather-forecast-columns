@@ -42,7 +42,7 @@ The weather icons are shown on a dark grey circle. Its color can be set with the
 
 ## Installation
 
-Requires Home Assistant 2024.8 or newer.
+Requires Home Assistant 2024.11 or newer.
 
 ### Home Assistant 2026.11 and newer: Marketplace
 

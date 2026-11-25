@@ -42,6 +42,9 @@ window.customCards.push({
   documentationURL: 'https://github.com/tolnai/hacs-weather-forecast-columns',
 });
 
+// Delay before retrying a failed forecast subscription.
+const RETRY_DELAY = 30_000;
+
 @customElement(CARD_TAG)
 export class WeatherForecastColumnsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -53,6 +56,9 @@ export class WeatherForecastColumnsCard extends LitElement {
 
   private _unsubForecast?: Promise<() => Promise<void>>;
   private _subscriptionKey?: string;
+  // Failed subscription: key and earliest retry time (ms).
+  private _failedKey?: string;
+  private _retryAfter = 0;
 
   static styles: CSSResultGroup = styles;
 
@@ -70,9 +76,6 @@ export class WeatherForecastColumnsCard extends LitElement {
     this.error = undefined;
     if (!config) {
       throw this.createError('Invalid configuration.');
-    }
-    if (!config.entity) {
-      throw this.createError('You need to define a weather entity.');
     }
     this.config = config;
   }
@@ -131,7 +134,7 @@ export class WeatherForecastColumnsCard extends LitElement {
     const entityId = this.config.entity;
     const forecastType = forecastModeOf(this.config);
     const key = `${entityId}|${forecastType}`;
-    if (this._subscriptionKey === key) {
+    if (this._subscriptionKey === key || (this._failedKey === key && Date.now() < this._retryAfter)) {
       return;
     }
     // Wait until the entity exists, a subscription to a missing entity fails.
@@ -140,11 +143,18 @@ export class WeatherForecastColumnsCard extends LitElement {
     }
     this._unsubscribeForecast();
     this._subscriptionKey = key;
-    this._forecast = [];
-    this._forecastError = undefined;
+    if (this._failedKey !== key) {
+      this._forecast = [];
+      this._forecastError = undefined;
+    }
     const unsub = this.hass.connection.subscribeMessage<ForecastEvent>(
       (event) => {
-        this._forecast = event.forecast ?? [];
+        // An old subscription can still send an event until its unsubscribe is processed.
+        if (this._subscriptionKey === key) {
+          this._failedKey = undefined;
+          this._forecastError = undefined;
+          this._forecast = event.forecast ?? [];
+        }
       },
       { type: 'weather/subscribe_forecast', entity_id: entityId, forecast_type: forecastType },
     );
@@ -154,6 +164,10 @@ export class WeatherForecastColumnsCard extends LitElement {
         return;
       }
       this._unsubForecast = undefined;
+      // Retry later, e.g. the weather integration may still be loading after a restart.
+      this._subscriptionKey = undefined;
+      this._failedKey = key;
+      this._retryAfter = Date.now() + RETRY_DELAY;
       this._forecastError = (err as { message?: string } | undefined)?.message ?? 'Forecast not available';
     });
   }
@@ -232,7 +246,11 @@ export class WeatherForecastColumnsCard extends LitElement {
   private _renderWeatherForecast() {
     const stateObj = this.hass?.states[this.config.entity];
     if (!stateObj || this._forecast.length === 0) {
-      const message = this.hass && !stateObj ? `Entity not available: ${this.config.entity}` : this._forecastError;
+      const message = !this.config.entity
+        ? 'Select a weather entity'
+        : this.hass && !stateObj
+          ? `Entity not available: ${this.config.entity}`
+          : this._forecastError;
       return this._renderPlaceholder(stateObj, message);
     }
 
@@ -250,13 +268,15 @@ export class WeatherForecastColumnsCard extends LitElement {
         ${forecast.map((item, index) => {
           const date = new Date(item.datetime);
           const maxPos = ((maxTemp - item.temperature) / range) * temperatureAreaHeight;
+          const hasHigh = isNumber(item.temperature);
           const hasLow = daily && isNumber(item.templow);
           const minPos = ((maxTemp - (item.templow ?? 0)) / range) * temperatureAreaHeight + boxSize;
           const weekend = daily && [6, 0].includes(date.getDay());
           const dateText = daily ? date.toLocaleDateString(language, { day: 'numeric' }) : date.getHours();
           // Hourly: the day is only shown in the first column and where a new day starts.
-          const showDay = daily || index === 0 || date.getHours() === 0;
-          const hourlyColor = daily ? undefined : tempColor(item.temperature);
+          const showDay =
+            daily || index === 0 || date.toDateString() !== new Date(forecast[index - 1].datetime).toDateString();
+          const hourlyColor = daily || !hasHigh ? undefined : tempColor(item.temperature);
           return html`
             <div class="day ${weekend ? 'weekend' : ''}">
               <div class="date_day">${dateText}</div>
@@ -272,13 +292,19 @@ export class WeatherForecastColumnsCard extends LitElement {
                 />
               </div>
               <div class="temperature" style="height: ${fullHeight}px;">
-                <div
-                  class="bubble ${daily ? 'max' : 'hourly'} ${hourlyColor?.darkText ? 'dark-text' : ''}"
-                  style="top: ${maxPos}px;"
-                >
-                  <div class="shape" style=${hourlyColor ? `background: ${hourlyColor.color};` : ''}></div>
-                  <span>${Math.round(item.temperature)}</span>
-                </div>
+                ${
+                  hasHigh
+                    ? html`
+                        <div
+                          class="bubble ${daily ? 'max' : 'hourly'} ${hourlyColor?.darkText ? 'dark-text' : ''}"
+                          style="top: ${maxPos}px;"
+                        >
+                          <div class="shape" style=${hourlyColor ? `background: ${hourlyColor.color};` : ''}></div>
+                          <span>${Math.round(item.temperature)}</span>
+                        </div>
+                      `
+                    : nothing
+                }
                 ${
                   hasLow
                     ? html`

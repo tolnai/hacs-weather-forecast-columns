@@ -2,5 +2,5 @@
   "name": "Weather Forecast Columns Card (like Időkép app)",
   "render_readme": true,
   "filename": "hacs-weather-forecast-columns.js",
-  "homeassistant": "2024.8.0"
+  "homeassistant": "2024.11.0"
 }
