@@ -115,6 +115,11 @@ export class WeatherForecastColumnsCardEditor extends LitElement {
               },
             },
             {
+              name: 'iconBackground',
+              label: 'Icon background color (CSS color, e.g. #c8c8c8 or transparent)',
+              selector: { text: {} },
+            },
+            {
               name: 'height',
               label: 'Temperature area height (px, default: 100)',
               selector: { number: { min: 20, mode: 'box' } },

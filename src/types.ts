@@ -25,6 +25,7 @@ export interface WeatherCardConfig {
   forecastMode?: ForecastMode;
   numberOfDaysHours?: number;
   iconPack?: number;
+  iconBackground?: string;
   height?: number;
   hideMargin?: boolean;
   tap_action?: ActionConfig;

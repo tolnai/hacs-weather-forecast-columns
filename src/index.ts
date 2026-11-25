@@ -302,6 +302,11 @@ export class WeatherForecastColumnsCard extends LitElement {
       <ha-card>
         <div
           class="main ${this.config.hideMargin ? '' : 'main-padding'}"
+          style=${
+            this.config.iconBackground
+              ? `--weather-forecast-columns-icon-background: ${this.config.iconBackground};`
+              : ''
+          }
           @action=${this._handleAction}
           .actionHandler=${actionHandler({
             hasHold: hasAction(this.config.hold_action),

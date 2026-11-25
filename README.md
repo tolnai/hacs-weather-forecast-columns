@@ -27,6 +27,7 @@ Check out my other work at [https://github.com/tolnai/home_assistant_cookbook](h
 | forecastMode      | string  | `daily`       | Forecast type: `daily` or `hourly`                                |
 | numberOfDaysHours | number  | all           | Number of days/hours to show                                      |
 | iconPack          | number  | `1`           | Icon pack: `1` (brighter) or `2` (darker)                         |
+| iconBackground    | string  | `#c8c8c8`     | Background color of the icon circle (any CSS color, `transparent` hides it) |
 | height            | number  | `100`         | Height of the temperature area in px (minimum 20)                 |
 | hideMargin        | boolean | `false`       | Removes the padding around the card content                       |
 | tap_action        | action  | `more-info`   | Tap action                                                        |
@@ -37,7 +38,7 @@ Actions use the usual Home Assistant action configuration. By default, tapping t
 
 ### Theming
 
-The weather icons are shown on a light grey circle. Its color can be changed with the `--weather-forecast-columns-icon-background` CSS variable, e.g. in a theme or with [card-mod](https://github.com/thomasloven/lovelace-card-mod).
+The weather icons are shown on a light grey circle. Its color can be set with the `iconBackground` option, or for all cards with the `--weather-forecast-columns-icon-background` CSS variable in a theme.
 
 ## Installation
 
@@ -85,6 +86,7 @@ hideName: false
 forecastMode: daily
 numberOfDaysHours: 7
 iconPack: 2
+iconBackground: '#b0b0b0'
 height: 120
 hideMargin: false
 tap_action:
