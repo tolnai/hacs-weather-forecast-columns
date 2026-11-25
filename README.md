@@ -35,6 +35,10 @@ Check out my other work at [https://github.com/tolnai/home_assistant_cookbook](h
 
 Actions use the usual Home Assistant action configuration. By default, tapping the card opens the more info dialog of the weather entity.
 
+### Theming
+
+The weather icons are shown on a light grey circle. Its color can be changed with the `--weather-forecast-columns-icon-background` CSS variable, e.g. in a theme or with [card-mod](https://github.com/thomasloven/lovelace-card-mod).
+
 ## Installation
 
 Requires Home Assistant 2024.8 or newer.

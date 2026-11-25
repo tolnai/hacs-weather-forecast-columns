@@ -73,7 +73,7 @@ export default css`
     height: 35px;
     margin: 5px auto;
     border-radius: 50%;
-    background: var(--shadow-color);
+    background: var(--weather-forecast-columns-icon-background, #ddd);
   }
   .icon img {
     display: block;
