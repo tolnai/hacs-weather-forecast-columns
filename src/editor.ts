@@ -116,7 +116,7 @@ export class WeatherForecastColumnsCardEditor extends LitElement {
             },
             {
               name: 'iconBackground',
-              label: 'Icon background color (CSS color, e.g. #c8c8c8 or transparent)',
+              label: 'Icon background color (CSS color, e.g. #444 or transparent)',
               selector: { text: {} },
             },
             {
